@@ -1,7 +1,6 @@
 #!/bin/bash
 
 file=$1
-echo $file
 if [ "${file: -4}" == ".tar" ] 
 then
 	tar -xvf $file
