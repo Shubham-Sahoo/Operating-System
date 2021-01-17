@@ -23,11 +23,22 @@ fi
 
 if [ ${#val[@]} -lt 10 ]
 then
-	res=${val[0]}
+	if [ ${val[0]} -ge 0 ]
+	then
+		res=${val[0]}
+	else
+		res=`expr ${val[0]} \* -1`	
+	fi
 	i=1
 	while [ $i -lt ${#val[@]} ]
 	do
-		gcd $res ${val[$i]}
+		if [ ${val[$i]} -ge 0 ]
+		then
+			mul=${val[$i]}
+		else
+			mul=`expr ${val[$i]} \* -1`	
+		fi
+		gcd $res $mul
 		res=$?
 		i=`expr $i + 1`
 	done
