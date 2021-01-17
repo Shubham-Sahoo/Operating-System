@@ -28,5 +28,7 @@ then
 elif [ "${file: -3}" == ".7z" ]
 then
 	7z x $file
+else
+	echo "Unknown file format : cannot extract"
 fi
 
