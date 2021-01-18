@@ -1,16 +1,14 @@
 #!/bin/bash
 
 mkdir 1.b.files.out
-
-FILES = $(1.b.files/ls *.txt)
+FILES=$(ls 1.b.files/)
+FILES=(${FILES[@]})
 touch 1.b.out.txt
-for FILE in $FILES
-    do
-        sort -r $FILE
-        $FILE >> 1.b.out.txt
-        touch "1.b.files.out/$FILE"
+for FILE in ${FILES[@]}
+do	
+	det=$(sort -nr "1.b.files/$FILE")
+	touch "1.b.files.out/$FILE"
+	echo $det > "1.b.files.out/$FILE"
+	echo $det >> 1.b.out.txt
 done        
-
-sort -r 1.b.out.txt
-
-
+sort -nr 1.b.out.txt > /dev/null
