@@ -4,7 +4,7 @@ FILE=$1
 NUM=$2
 out=1c_output_$2_column.freq
 touch $out
-awk -v out="$out" -v NUM="$NUM" 'BEGIN{ }
+awk -v out="$out" -v NUM="$NUM" '
 {
 arr[tolower($	NUM)]++
 }
