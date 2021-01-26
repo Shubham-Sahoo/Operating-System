@@ -76,6 +76,7 @@ void parse(string input, string *parsed_com)
 		{
 			i--; 
 		}
+
 	}
 
 }
@@ -93,12 +94,14 @@ void parse_piped(string *split_pipe, string **parsed_pipe, int n)
 
 }
 
-void split_fn(string input, string *parsed_com, string **parsed_pipe)
+int split_fn(string input, string *parsed_com, string **parsed_pipe)
 {
 	string *split_pipe = new string[MAX_LENGTH];
+	
 	int pipe = 0;
 	cout<<pipe<<" "<<flush;
 	pipe = check_pipe(input,split_pipe);
+
 	cout<<pipe<<" "<<flush;
 	if(pipe>0)
 	{
@@ -108,8 +111,44 @@ void split_fn(string input, string *parsed_com, string **parsed_pipe)
 	{
 		parse(split_pipe[0],parsed_com);
 	}
-	
+	return pipe;
 }
+
+void launch_proc(string *parsed_com)
+{
+	pid_t pid = fork(); 
+
+	const char *input;
+	input = &parsed_com[0][0];
+
+	char *full[1024];
+	for(int i=1;i<1024;i++)
+	{	
+		full[i] = &parsed_com[i][0];
+	}
+
+	if (pid == -1) { 
+		printf("\nFailed forking child.."); 
+		return; 
+	} 
+	else if (pid == 0) 
+	{ 
+		if (execvp(input, full) < 0) 
+		{ 
+			printf("\nCould not execute command.."); 
+		} 
+		cout<<"Executed";
+		exit(0); 
+	} 
+	else 
+	{ 
+		// waiting for child to terminate 
+		wait(NULL); 
+		return; 
+	} 
+
+}
+
 
 int main()
 {
@@ -117,7 +156,7 @@ int main()
 	string input;
 	string *parsed_com, **parsed_pipe;
  
-	int i=1;
+	int i=1,pipe_val=0;
 	
 	while(1)
 	{	
@@ -132,8 +171,17 @@ int main()
 			continue;
 		}
 
-		split_fn(input,parsed_com,parsed_pipe);	
-		cout<<parsed_pipe[0][0]<<" "<<flush;
+		pipe_val = split_fn(input,parsed_com,parsed_pipe);	
+		//cout<<parsed_pipe[0][0]<<" "<<flush;
+
+		if(pipe_val==0)
+		{
+			launch_proc(parsed_com);
+		}
+		else
+		{
+			//launch_proc_pipe(parsed_pipe);
+		}
 		
 		//delete parsed_com;
 		//delete parsed_pipe;
