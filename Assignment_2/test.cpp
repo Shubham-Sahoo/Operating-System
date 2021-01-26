@@ -61,11 +61,14 @@ void parse(string input, string *parsed_com)
 {
 	int i; 
 	char *in = &input[0];
+	char *out;
 	for (i = 0; i < MAX_LENGTH; i++) 
 	{ 
-		parsed_com[i] = strsep(&in, " ");
+		out = strsep(&in, " ");
+		if(out!=NULL)
+			parsed_com[i] = out;
 
-		if (parsed_com[i] == "") 
+		if (out == NULL) 
 		{
 			break;
 		}
@@ -103,7 +106,7 @@ void split_fn(string input, string *parsed_com, string **parsed_pipe)
 	}
 	else
 	{
-		parse(input,parsed_com);
+		parse(split_pipe[0],parsed_com);
 	}
 	
 }
@@ -130,10 +133,10 @@ int main()
 		}
 
 		split_fn(input,parsed_com,parsed_pipe);	
-		cout<<parsed_com[0]<<" "<<flush;
+		cout<<parsed_pipe[0][0]<<" "<<flush;
 		
-		delete parsed_com;
-		delete parsed_pipe;
+		//delete parsed_com;
+		//delete parsed_pipe;
 	}
 
 	return 0;
