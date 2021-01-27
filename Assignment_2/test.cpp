@@ -163,6 +163,154 @@ void launch_proc(string *parsed_com)
 
 }
 
+void launch_io_redirect(string *parsed_com)
+{
+	if (parsed_com[0] == NULL){	// Empty command
+		return 1;
+	}
+
+	// Copy the current Standard Input and Output file descriptors
+	// so they can be restored after executing the current command
+	int std_in, std_out, std_err;
+	std_in = dup(0);
+	std_out = dup(1);
+	std_err = dup(2);
+
+	// Check if redirection operators are present
+	int i = 1;
+
+	while ( parsed_com[i] != NULL ){
+		if ( strcmp( parsed_com[i], "<" ) == 0 ){	// Input redirection
+			int inp = open( parsed_com[i+1], O_RDONLY );
+			if ( inp < 0 ){
+				perror("minsh");
+				return 1;
+			}
+
+			if ( dup2(inp, 0) < 0 ){
+				perror("minsh");
+				return 1;
+			}
+			close(inp);
+			parsed_com[i] = NULL;
+			parsed_com[i+1] = NULL;
+			i += 2;
+		}
+		else if ( strcmp( parsed_com[i], "<<" ) == 0 ){	// Input redirection
+			int inp = open( parsed_com[i+1], O_RDONLY );
+			if ( inp < 0 ){
+
+				perror("minsh");
+				return 1;
+			}
+
+			if ( dup2(inp, 0) < 0 ){
+				perror("minsh");
+				return 1;
+			}
+			close(inp);
+			parsed_com[i] = NULL;
+			parsed_com[i+1] = NULL;
+			i += 2;
+		}
+		else if( strcmp( parsed_com[i], ">") == 0 ){	// Output redirection
+
+			int out = open( parsed_com[i+1], O_WRONLY | O_TRUNC | O_CREAT, 0755 );
+			if ( out < 0 ){
+				perror("minsh");
+				return 1;
+			}
+
+			if ( dup2(out, 1) < 0 ){
+				perror("minsh");
+				return 1;
+			}
+			close(out);
+			parsed_com[i] = NULL;
+			parsed_com[i+1] = NULL;
+			i += 2;
+		}
+		else if( strcmp( parsed_com[i], ">>") == 0 ){	// Output redirection (append)
+			int out = open( parsed_com[i+1], O_WRONLY | O_APPEND | O_CREAT, 0755 );
+			if ( out < 0 ){
+				perror("minsh");
+				return 1;
+			}
+
+			if ( dup2(out, 1) < 0 ){
+				perror("minsh");
+				return 1;
+
+			}
+			close(out);
+			parsed_com[i] = NULL;
+			parsed_com[i+1] = NULL;
+			i += 2;
+		}
+		else if( strcmp( parsed_com[i], "2>") == 0 ){	// Error redirection
+			int err = open( parsed_com[i+1], O_WRONLY | O_CREAT, 0755 );
+			if ( err < 0 ){
+				perror("minsh");
+				return 1;
+			}
+
+			if ( dup2(err, 2) < 0 ){
+				perror("minsh");
+				return 1;
+			}
+			close(err);
+			parsed_com[i] = NULL;
+			parsed_com[i+1] = NULL;
+			i += 2;
+		}
+		else if( strcmp( parsed_com[i], "2>>") == 0 ){	// Error redirection
+			int err = open( parsed_com[i+1], O_WRONLY | O_CREAT | O_APPEND, 0755 );
+
+			if ( err < 0 ){
+				perror("minsh");
+				return 1;
+			}
+
+			if ( dup2(err, 2) < 0 ){
+				perror("minsh");
+				return 1;
+			}
+			close(err);
+			parsed_com[i] = NULL;
+			parsed_com[i+1] = NULL;
+			i += 2;
+
+		}
+		else{
+			i++;
+		}
+	}
+
+	// If the command is a built-in command, execute that function
+	for(i = 0 ; i < BUILTIN_COMMANDS ; i++){
+		if ( strcmp(parsed_com[0], builtin[i]) == 0 ){
+			int ret_status = (* builtin_function[i])(parsed_com);
+			
+			// Restore the Standard Input and Output file descriptors
+			dup2(std_in, 0);
+			dup2(std_out, 1);
+			dup2(std_err, 2);
+
+			return ret_status;
+		}
+	}
+
+	// For other commands, execute a child process
+	int ret_status = launch_proc(parsed_com);
+
+	// Restore the Standard Input and Output file descriptors
+	dup2(std_in, 0);
+	dup2(std_out, 1);
+	dup2(std_err, 2);
+
+	return ret_status;
+}
+
 
 int main()
 {
@@ -189,8 +337,18 @@ int main()
 		//cout<<parsed_pipe[0][0]<<" "<<flush;
 
 		if(pipe_val==0)
-		{
-			launch_proc(parsed_com);
+		{	int chk = 0;
+			for(int i=1;i<MAX_LENGTH;i++)
+			{
+				if(strcmp(parsed_com[i],"<")==0 || strcmp(parsed_com[i],">" || strcmp(parsed_com==">>")==0)
+				{
+					chk ++;break;
+				}
+			}
+			 if(chk)
+				launch_io_redirect(parsed_com);
+			 else
+				launch_proc(parsed_com);
 		}
 		else
 		{
