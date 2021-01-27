@@ -115,32 +115,20 @@ int split_fn(string input, string *parsed_com, string **parsed_pipe)
 }
 
 void launch_proc(string *parsed_com)
-{
-	pid_t pid = fork(); 
-
-	const char *input;
-	input = &parsed_com[0][0];
-
-	char *full[1024];
-	string s="";
-	int j=0;
-	for(int i=1;i<1024;i++)
+{	
+	int st = 1;
+	for(int i=0;i<1024;i++)
 	{	
 		if(parsed_com[i].size()>0)
 		{
-			j++;
+			if(strcmp((char*)&parsed_com[i][0],"&")==0)
+			{
+				st = 0;
+			}
 		}
 	}
-	//full = new char*[j-1];
-
-	for(int i=1;i<j;i++)
-	{	
-		full[i-1] = &parsed_com[i][0];
-	}
-	//cout<<input<<" "<<flush;
-
-	cout<<full[0]<<" "<<flush;
-	cout<<"Hi";
+	
+	pid_t pid = fork(); 
 
 	if (pid == -1) { 
 		printf("\nFailed forking child.."); 
@@ -148,21 +136,53 @@ void launch_proc(string *parsed_com)
 	} 
 	else if (pid == 0) 
 	{ 
-		if (execlp(input, input, full , (char *)NULL)< 0)  //    const_cast<char* const*>(full)  "/bin/sh","/bin/sh", "-c",  ...  ,  (char *)NULL)
+
+		const char *input;
+		input = &parsed_com[0][0];
+
+		int j=0;
+		for(int i=0;i<1024;i++)
+		{	
+			if(parsed_com[i].size()>0)
+			{
+				j++;
+			}
+		}
+		char *full[1024];
+
+		for(int i=0;i<j;i++)
+		{		
+			full[i] = new char[parsed_com[i].size()];
+			full[i] = &parsed_com[i][0];
+		}
+
+		for (int i=j;i<1024;i++)
+		{	
+			full[i] = new char[sizeof(NULL)];
+			full[i] = NULL;
+		}
+		
+		if (execvp(input, full)< 0)  //    const_cast<char* const*>(full)  "/bin/sh","/bin/sh", "-c",  ...  ,  (char *)NULL)
 		{ 
 			printf("\nCould not execute command.."); 
 		} 
 		exit(0); 
 	} 
-	else 
+
+	else if(st==0)
 	{ 
-		
-		wait(NULL); 
+		//cout<<full[0];	
 		return; 
-	} 
+	}
+	
+	else 
+	{
+		wait(NULL);
+		return;
 
+	}
 }
-
+/*
 void launch_io_redirect(string *parsed_com)
 {
 	if (parsed_com[0] == NULL){	// Empty command
@@ -310,7 +330,7 @@ void launch_io_redirect(string *parsed_com)
 
 	return ret_status;
 }
-
+*/
 
 int main()
 {
@@ -340,15 +360,21 @@ int main()
 		{	int chk = 0;
 			for(int i=1;i<MAX_LENGTH;i++)
 			{
-				if(strcmp(parsed_com[i],"<")==0 || strcmp(parsed_com[i],">" || strcmp(parsed_com==">>")==0)
+				if(strcmp((char*)&parsed_com[i][0],"<")==0 || strcmp((char*)&parsed_com[i][0],">")==0 || strcmp((char*)&parsed_com[i][0],">>")==0)
 				{
-					chk ++;break;
+					chk ++;
+					break;
 				}
 			}
-			 if(chk)
-				launch_io_redirect(parsed_com);
-			 else
+
+			if(chk)
+			{
+				//launch_io_redirect(parsed_com);
+			}
+			else
+			{
 				launch_proc(parsed_com);
+			}
 		}
 		else
 		{
