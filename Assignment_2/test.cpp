@@ -8,6 +8,7 @@
 #include<readline/history.h> 
 #include<iostream>
 #include<vector>
+#include <cassert>
 
 #define MAX_LENGTH 1024
 
@@ -99,10 +100,9 @@ int split_fn(string input, string *parsed_com, string **parsed_pipe)
 	string *split_pipe = new string[MAX_LENGTH];
 	
 	int pipe = 0;
-	cout<<pipe<<" "<<flush;
+
 	pipe = check_pipe(input,split_pipe);
 
-	cout<<pipe<<" "<<flush;
 	if(pipe>0)
 	{
 		parse_piped(split_pipe, parsed_pipe, pipe);
@@ -122,10 +122,25 @@ void launch_proc(string *parsed_com)
 	input = &parsed_com[0][0];
 
 	char *full[1024];
+	string s="";
+	int j=0;
 	for(int i=1;i<1024;i++)
 	{	
-		full[i] = &parsed_com[i][0];
+		if(parsed_com[i].size()>0)
+		{
+			j++;
+		}
 	}
+	//full = new char*[j-1];
+
+	for(int i=1;i<j;i++)
+	{	
+		full[i-1] = &parsed_com[i][0];
+	}
+	//cout<<input<<" "<<flush;
+
+	cout<<full[0]<<" "<<flush;
+	cout<<"Hi";
 
 	if (pid == -1) { 
 		printf("\nFailed forking child.."); 
@@ -133,16 +148,15 @@ void launch_proc(string *parsed_com)
 	} 
 	else if (pid == 0) 
 	{ 
-		if (execvp(input, full) < 0) 
+		if (execlp(input, input, full , (char *)NULL)< 0)  //    const_cast<char* const*>(full)  "/bin/sh","/bin/sh", "-c",  ...  ,  (char *)NULL)
 		{ 
 			printf("\nCould not execute command.."); 
 		} 
-		cout<<"Executed";
 		exit(0); 
 	} 
 	else 
 	{ 
-		// waiting for child to terminate 
+		
 		wait(NULL); 
 		return; 
 	} 
