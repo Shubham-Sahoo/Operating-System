@@ -204,9 +204,7 @@ int launch_io_redirect(string *parsed_com)
 	// Check if redirection operators are present
 	int i = 1;
 
-	int fd[2];
-	if(pipe(fd)<0)
-		exit(1);
+	
 	
 	while ( parsed_com[i].size()!=0 )
 	{
@@ -339,6 +337,103 @@ int launch_io_redirect(string *parsed_com)
 	return 1;
 }
 
+void launch_proc_pipe(string **parsed_pipe, int pipe_val)
+{
+	int *fd1 = new int[2*pipe_val-2];  // Used to store two ends of first pipe 
+	int status;
+    pid_t p;
+  
+    for(int i=0;i<pipe_val-1;i++)
+    {
+    	pipe(fd1+2*i);
+    }
+
+    int std_in, std_out, std_err;
+	std_in = dup(0);
+	std_out = dup(1);
+	std_err = dup(2);
+    
+    dup2(fd1[1],1);
+    
+    for(int i=0;i<2*pipe_val-2;i++)
+    {
+    	close(fd1[i]);
+    }
+
+    launch_proc(parsed_pipe[0]);
+    int j=1;
+    for(int i=1;i<pipe_val-1;i++)
+    {	j++;
+
+    	p = fork(); 
+
+	    if (p < 0) 
+	    { 
+	        fprintf(stderr, "fork Failed" ); 
+	        exit(1); 
+	    } 
+	  	
+	  	if(p==0)
+	  	{
+	  		dup2(fd1[2*i-2],0);
+  			dup2(fd1[2*i+1],1);
+
+	  		for(int i=0;i<2*pipe_val-2;i++)
+	    	{
+	    		close(fd1[i]);
+	    	}
+	        
+	        launch_proc(parsed_pipe[i]); 
+	  
+	        exit(0); 
+	    
+    	}
+
+    }
+    for (i = 0; i < j-1; i++)
+    	wait(&status);
+  	// wait(NULL); 
+
+    for(int i=0;i<2*pipe_val-2;i++)
+	{
+		close(fd1[i]);
+	}
+
+
+    p = fork(); 
+
+    if (p < 0) 
+    { 
+        fprintf(stderr, "fork Failed" ); 
+        exit(1); 
+    } 
+  	
+  	if(p==0)
+  	{
+  		dup2(fd1[2*j-2],0);
+		dup2(std_out,1);
+
+  		for(int i=0;i<2*pipe_val-2;i++)
+    	{
+    		close(fd1[i]);
+    	}
+        
+        launch_proc(parsed_pipe[j]); 
+        exit(0); 
+    
+	}
+
+	for (i = 0; i < 1; i++)
+    	wait(&status);
+	//wait(NULL); 
+	for(int i=0;i<2*pipe_val-2;i++)
+	{
+		close(fd1[i]);
+	}
+    
+    return;	
+
+}
 
 int main()
 {
@@ -387,7 +482,7 @@ int main()
 		}
 		else
 		{
-			//launch_proc_pipe(parsed_pipe);
+			launch_proc_pipe(parsed_pipe,pipe_val);
 		}
 		
 		//delete parsed_com;
