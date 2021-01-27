@@ -326,7 +326,7 @@ int main()
 		{	int chk = 0;
 			for(int i=1;i<MAX_LENGTH;i++)
 			{
-				if(strcmp(parsed_com[i],"<")==0 || strcmp(parsed_com[i],">")==0)
+				if(strcmp(parsed_com[i],"<")==0 || strcmp(parsed_com[i],">" || strcmp(parsed_com==">>")==0)
 				{
 					chk ++;break;
 				}
