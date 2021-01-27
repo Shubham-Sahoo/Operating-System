@@ -188,6 +188,66 @@ void launch_proc(string *parsed_com)
 	}
 }
 
+void launch_proc_ch(string *parsed_com)
+{	
+	int st = 1;
+	for(int i=0;i<1024;i++)
+	{	
+		if(parsed_com[i].size()>0)
+		{
+			if(strcmp((char*)&parsed_com[i][0],"&")==0)
+			{
+				st = 0;
+			}
+		}
+	}
+
+	//pid_t pid = fork(); 
+
+	//cout<<parsed_com[0]<<" "<<flush;
+
+	// if (pid == -1) { 
+	// 	printf("\nFailed forking child.."); 
+	// 	return; 
+	// } 
+	// else if (pid == 0) 
+	// { 
+
+		const char *input;
+		input = &parsed_com[0][0];
+
+		//cout<<parsed_com[0]<<" "<<flush;
+
+		int j=0;
+		for(int i=0;i<1024;i++)
+		{	
+			if(parsed_com[i].size()>0)
+			{
+				j++;
+			}
+		}
+		char *full[1024];
+
+		for(int i=0;i<j;i++)
+		{		
+			full[i] = new char[parsed_com[i].size()];
+			full[i] = &parsed_com[i][0];
+		}
+
+		for (int i=j;i<1024;i++)
+		{	
+			full[i] = new char[sizeof(NULL)];
+			full[i] = NULL;
+		}
+		
+		if (execvp(input, full)< 0)  //    const_cast<char* const*>(full)  "/bin/sh","/bin/sh", "-c",  ...  ,  (char *)NULL)
+		{ 
+			printf("\nCould not execute command.."); 
+		} 
+		exit(0); 
+
+}
+
 int launch_io_redirect(string *parsed_com)
 {
 	if (parsed_com[0] == ""){	// Empty command
@@ -341,8 +401,8 @@ void launch_proc_pipe(string **parsed_pipe, int pipe_val)
 {
 	int *fd1 = new int[2*pipe_val-2];  // Used to store two ends of first pipe 
 	int status;
-    pid_t p;
-  
+    pid_t p = 1;
+  	cout<<pipe_val<<" value "<<flush;
     for(int i=0;i<pipe_val-1;i++)
     {
     	pipe(fd1+2*i);
@@ -353,17 +413,35 @@ void launch_proc_pipe(string **parsed_pipe, int pipe_val)
 	std_out = dup(1);
 	std_err = dup(2);
     
-    dup2(fd1[1],1);
+    //dup2(fd1[1],1);
     
-    for(int i=0;i<2*pipe_val-2;i++)
+    for(int i=2;i<2*pipe_val-2;i++)
     {
     	close(fd1[i]);
     }
+    
+	//cout<<"inside forking first"<<" "<<flush;
+	p = fork();
+	if(p==0)
+	{	
+		dup2(fd1[1],1);
+		for(int i=0;i<2*pipe_val-2;i++)
+	    {
+	    	close(fd1[i]);
+	    }
+		
+		launch_proc_ch(parsed_pipe[0]);
+		exit(0);
+    }
 
-    launch_proc(parsed_pipe[0]);
+	wait(NULL);
+
     int j=1;
     for(int i=1;i<pipe_val-1;i++)
-    {	j++;
+    {	
+    	//cout<<"outside forking first"<<" "<<flush;
+    	
+    	j++;
 
     	p = fork(); 
 
@@ -375,30 +453,35 @@ void launch_proc_pipe(string **parsed_pipe, int pipe_val)
 	  	
 	  	if(p==0)
 	  	{
-	  		dup2(fd1[2*i-2],0);
-  			dup2(fd1[2*i+1],1);
+	  		
 
 	  		for(int i=0;i<2*pipe_val-2;i++)
 	    	{
 	    		close(fd1[i]);
 	    	}
 	        
-	        launch_proc(parsed_pipe[i]); 
+	    	dup2(fd1[2*i-2],0);
+  			dup2(fd1[2*i+1],1);
+
+  			for(int i=0;i<2*pipe_val-2;i++)
+	    	{
+	    		close(fd1[i]);
+	    	}
+
+	        launch_proc_ch(parsed_pipe[i]); 
 	  
 	        exit(0); 
 	    
     	}
+    	wait(NULL);
 
     }
-    for (i = 0; i < j-1; i++)
-    	wait(&status);
-  	// wait(NULL); 
 
-    for(int i=0;i<2*pipe_val-2;i++)
-	{
-		close(fd1[i]);
-	}
+    //for (int i = 0; i < j-1; i++)
+    //	wait(&status);
+  	//wait(NULL); 
 
+  	//cout<<"Midway"<<" "<<flush;
 
     p = fork(); 
 
@@ -410,6 +493,7 @@ void launch_proc_pipe(string **parsed_pipe, int pipe_val)
   	
   	if(p==0)
   	{
+
   		dup2(fd1[2*j-2],0);
 		dup2(std_out,1);
 
@@ -418,19 +502,21 @@ void launch_proc_pipe(string **parsed_pipe, int pipe_val)
     		close(fd1[i]);
     	}
         
-        launch_proc(parsed_pipe[j]); 
-        exit(0); 
+        launch_proc_ch(parsed_pipe[j]);
+        exit(0);  
     
 	}
-
-	for (i = 0; i < 1; i++)
-    	wait(&status);
-	//wait(NULL); 
+	wait(NULL); 
 	for(int i=0;i<2*pipe_val-2;i++)
 	{
 		close(fd1[i]);
 	}
-    
+
+	dup2(std_in, 0);
+	dup2(std_out, 1);
+	dup2(std_err, 2);
+
+    //cout<<"The val :"<<j<<" "<<flush;
     return;	
 
 }
@@ -482,6 +568,8 @@ int main()
 		}
 		else
 		{
+			for(int i=0;i<pipe_val;i++)
+				cout<<string(parsed_pipe[i][0])<<" ";
 			launch_proc_pipe(parsed_pipe,pipe_val);
 		}
 		
