@@ -8,7 +8,8 @@
 #include<readline/history.h> 
 #include<iostream>
 #include<vector>
-#include <cassert>
+#include <cassert> 
+#include<fcntl.h> 
 
 #define MAX_LENGTH 1024
 
@@ -127,8 +128,10 @@ void launch_proc(string *parsed_com)
 			}
 		}
 	}
-	
+
 	pid_t pid = fork(); 
+
+	//cout<<parsed_com[0]<<" "<<flush;
 
 	if (pid == -1) { 
 		printf("\nFailed forking child.."); 
@@ -139,6 +142,8 @@ void launch_proc(string *parsed_com)
 
 		const char *input;
 		input = &parsed_com[0][0];
+
+		//cout<<parsed_com[0]<<" "<<flush;
 
 		int j=0;
 		for(int i=0;i<1024;i++)
@@ -182,10 +187,10 @@ void launch_proc(string *parsed_com)
 
 	}
 }
-/*
-void launch_io_redirect(string *parsed_com)
+
+int launch_io_redirect(string *parsed_com)
 {
-	if (parsed_com[0] == NULL){	// Empty command
+	if (parsed_com[0] == ""){	// Empty command
 		return 1;
 	}
 
@@ -199,10 +204,41 @@ void launch_io_redirect(string *parsed_com)
 	// Check if redirection operators are present
 	int i = 1;
 
-	while ( parsed_com[i] != NULL ){
-		if ( strcmp( parsed_com[i], "<" ) == 0 ){	// Input redirection
-			int inp = open( parsed_com[i+1], O_RDONLY );
+	int fd[2];
+	if(pipe(fd)<0)
+		exit(1);
+	
+	while ( parsed_com[i].size()!=0 )
+	{
+		if ( strcmp( (char*)&parsed_com[i][0], "<" ) == 0 )
+		{	// Input redirection
+			char *input = &parsed_com[i+1][0];
+			int inp = open( input, O_RDONLY );
+			cout<<"here 2nd "<<inp<<" "<<flush;
+			
+
+			if ( inp < 0 )
+			{
+				perror("minsh");
+				return 1;
+			}
+
+			if ( dup2(inp, 0) < 0 )
+			{
+				perror("minsh");
+				return 1;
+			}
+			close(inp);
+
+			parsed_com[i] = "";
+			parsed_com[i+1] = "";
+			i += 2;
+		}
+		else if ( strcmp( (char*)&parsed_com[i][0], "<<" ) == 0 )
+		{	// Input redirection
+			int inp = open( (char*)&parsed_com[i+1][0], O_RDONLY );
 			if ( inp < 0 ){
+
 				perror("minsh");
 				return 1;
 			}
@@ -212,30 +248,14 @@ void launch_io_redirect(string *parsed_com)
 				return 1;
 			}
 			close(inp);
-			parsed_com[i] = NULL;
-			parsed_com[i+1] = NULL;
+			parsed_com[i] = "";
+			parsed_com[i+1] = "";
 			i += 2;
 		}
-		else if ( strcmp( parsed_com[i], "<<" ) == 0 ){	// Input redirection
-			int inp = open( parsed_com[i+1], O_RDONLY );
-			if ( inp < 0 ){
+		else if( strcmp( (char*)&parsed_com[i][0], ">") == 0 )
+		{	// Output redirection
 
-				perror("minsh");
-				return 1;
-			}
-
-			if ( dup2(inp, 0) < 0 ){
-				perror("minsh");
-				return 1;
-			}
-			close(inp);
-			parsed_com[i] = NULL;
-			parsed_com[i+1] = NULL;
-			i += 2;
-		}
-		else if( strcmp( parsed_com[i], ">") == 0 ){	// Output redirection
-
-			int out = open( parsed_com[i+1], O_WRONLY | O_TRUNC | O_CREAT, 0755 );
+			int out = open( (char*)&parsed_com[i+1][0], O_WRONLY | O_TRUNC | O_CREAT, 0755 );
 			if ( out < 0 ){
 				perror("minsh");
 				return 1;
@@ -246,12 +266,13 @@ void launch_io_redirect(string *parsed_com)
 				return 1;
 			}
 			close(out);
-			parsed_com[i] = NULL;
-			parsed_com[i+1] = NULL;
+			parsed_com[i] = "";
+			parsed_com[i+1] = "";
 			i += 2;
 		}
-		else if( strcmp( parsed_com[i], ">>") == 0 ){	// Output redirection (append)
-			int out = open( parsed_com[i+1], O_WRONLY | O_APPEND | O_CREAT, 0755 );
+		else if( strcmp( (char*)&parsed_com[i][0], ">>") == 0 )
+		{	// Output redirection (append)
+			int out = open( (char*)&parsed_com[i+1][0], O_WRONLY | O_APPEND | O_CREAT, 0755 );
 			if ( out < 0 ){
 				perror("minsh");
 				return 1;
@@ -263,12 +284,13 @@ void launch_io_redirect(string *parsed_com)
 
 			}
 			close(out);
-			parsed_com[i] = NULL;
-			parsed_com[i+1] = NULL;
+			parsed_com[i] = "";
+			parsed_com[i+1] = "";
 			i += 2;
 		}
-		else if( strcmp( parsed_com[i], "2>") == 0 ){	// Error redirection
-			int err = open( parsed_com[i+1], O_WRONLY | O_CREAT, 0755 );
+		else if( strcmp( (char*)&parsed_com[i][0], "2>") == 0 )
+		{	// Error redirection
+			int err = open( (char*)&parsed_com[i+1][0], O_WRONLY | O_CREAT, 0755 );
 			if ( err < 0 ){
 				perror("minsh");
 				return 1;
@@ -279,12 +301,13 @@ void launch_io_redirect(string *parsed_com)
 				return 1;
 			}
 			close(err);
-			parsed_com[i] = NULL;
-			parsed_com[i+1] = NULL;
+			parsed_com[i] = "";
+			parsed_com[i+1] = "";
 			i += 2;
 		}
-		else if( strcmp( parsed_com[i], "2>>") == 0 ){	// Error redirection
-			int err = open( parsed_com[i+1], O_WRONLY | O_CREAT | O_APPEND, 0755 );
+		else if( strcmp( (char*)&parsed_com[i][0], "2>>") == 0 )
+		{	// Error redirection
+			int err = open( (char*)&parsed_com[i+1][0], O_WRONLY | O_CREAT | O_APPEND, 0755 );
 
 			if ( err < 0 ){
 				perror("minsh");
@@ -296,8 +319,8 @@ void launch_io_redirect(string *parsed_com)
 				return 1;
 			}
 			close(err);
-			parsed_com[i] = NULL;
-			parsed_com[i+1] = NULL;
+			parsed_com[i] = "";
+			parsed_com[i+1] = "";
 			i += 2;
 
 		}
@@ -306,31 +329,16 @@ void launch_io_redirect(string *parsed_com)
 		}
 	}
 
-	// If the command is a built-in command, execute that function
-	for(i = 0 ; i < BUILTIN_COMMANDS ; i++){
-		if ( strcmp(parsed_com[0], builtin[i]) == 0 ){
-			int ret_status = (* builtin_function[i])(parsed_com);
-			
-			// Restore the Standard Input and Output file descriptors
-			dup2(std_in, 0);
-			dup2(std_out, 1);
-			dup2(std_err, 2);
-
-			return ret_status;
-		}
-	}
-
 	// For other commands, execute a child process
-	int ret_status = launch_proc(parsed_com);
+	launch_proc(parsed_com);
 
 	// Restore the Standard Input and Output file descriptors
 	dup2(std_in, 0);
 	dup2(std_out, 1);
 	dup2(std_err, 2);
-
-	return ret_status;
+	return 1;
 }
-*/
+
 
 int main()
 {
@@ -368,8 +376,9 @@ int main()
 			}
 
 			if(chk)
-			{
-				//launch_io_redirect(parsed_com);
+			{	
+				cout<<"here start"<<" "<<flush;
+				int a = launch_io_redirect(parsed_com);
 			}
 			else
 			{
