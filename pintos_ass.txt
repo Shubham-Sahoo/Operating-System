@@ -9,7 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Shubham Sahoo <email@domain.example>
-Neeladri Das <email@domain.example>
+Neeladri Das neeladridas1603@gmail.com
 
 
 ---- PRELIMINARIES ----
