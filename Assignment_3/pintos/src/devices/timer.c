@@ -92,29 +92,27 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  // int64_t start = timer_ticks ();
 
-  ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-   thread_yield ();
+  // ASSERT (intr_get_level () == INTR_ON);
+  // while (timer_elapsed (start) < ticks) 
+  //  thread_yield ();
 
   /**** Interrupt design sleep ****/
   
-  struct thread *th = thread_current();
+  struct thread *th = thread_current();     // Current thread
   
-  enum intr_level old_level;
-  //printf("Before block");
-  old_level = intr_disable();
+  enum intr_level old_level;                // Create enumeration of interrupt level
+  printf("Hi thread %d \n",th->tid);
+  old_level = intr_disable();               // Disable the interrupt and assign the previous value
   ASSERT (intr_get_level () == INTR_OFF);
 
-  th->wakeup_time = timer_ticks () + ticks;
-  //printf("Before block 2");
-  list_insert_ordered(&timer_wait_list, &th->timer_elem, wakeup_inorder, NULL);
-  //printf("Before block 3");
-  thread_block();
-  intr_set_level (old_level);
-  //printf("aft block\n");
-
+  th->wakeup_time = timer_ticks () + ticks;   // Set wakeup time for the thread
+  
+  list_insert_ordered(&timer_wait_list, &th->timer_elem, wakeup_inorder, NULL);  // Insert it with other threads
+  
+  thread_block();                       // Block the execution of the thread
+  intr_set_level (old_level);           // Reset the interrupt level to previous value
   
 }
 
@@ -194,23 +192,28 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  struct thread *th;
-  /** Thread interrupt helper **/
-  enum intr_level old_level;
-  old_level = intr_disable ();
-  while (!list_empty (&timer_wait_list))
-  { 
-    th = list_entry (list_front (&timer_wait_list), struct thread, timer_elem);
 
-    if (ticks < th->wakeup_time)
+  /** Thread interrupt helper **/
+
+  struct thread *th;
+
+  enum intr_level old_level;            // Create enumeration of the interrupt level
+  
+  old_level = intr_disable ();          // Disable the interrupt service
+
+  while (!list_empty (&timer_wait_list))    // Loop through the wait list of threads
+  { 
+    th = list_entry (list_front (&timer_wait_list), struct thread, timer_elem);   // Take the front thread
+                                                                  // as this would have the least wakeup time
+    if (ticks < th->wakeup_time)            // Check for time overflow
       break;
     
-    thread_unblock(th);
-    list_pop_front (&timer_wait_list);
+    thread_unblock(th);                     // Unblock the thread if time has passed
+    list_pop_front (&timer_wait_list);      // Remove the thread from the list
   }
   
-  intr_set_level (old_level);
-  //printf("Unblock\n");
+  intr_set_level (old_level);               // At last set the interrupt level to previous value
+  
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

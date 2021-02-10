@@ -209,8 +209,6 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  printf("Inside thread %d \n",tid);
-
   return tid;
 }
 
@@ -572,7 +570,7 @@ schedule (void)
 
 bool
 wakeup_inorder (const struct list_elem *left,
- const struct list_elem *right, void *aux UNUSED)
+const struct list_elem *right, void *aux UNUSED)
 {
   const struct thread *tleft = list_entry (left, struct thread, timer_elem);
   const struct thread *tright = list_entry (right, struct thread, timer_elem);
