@@ -6,20 +6,16 @@
 				   
 ---- GROUP 2----
 
->> Fill in the names and email addresses of your group members.
-
-Shubham Sahoo <email@domain.example>
+Shubham Sahoo shubhamsomnath@gmail.com
 Neeladri Das neeladridas1603@gmail.com
 
 
 ---- PRELIMINARIES ----
 
->> If you have any preliminary comments on your submission, notes for the
->> TAs, or extra credit, please give them here.
+Additional References - 
 
->> Please cite any offline or online sources you consulted while
->> preparing your submission, other than the Pintos documentation, course
->> text, lecture notes, and course staff.
+1) https://www.ccs.neu.edu/home/skotthe/classes/cs5600/fall/2015/notes/pintos-project1.pdf
+
 
 			     ALARM CLOCK
 			     ===========
@@ -28,91 +24,105 @@ Neeladri Das neeladridas1603@gmail.com
 
 -> IN thread.h
 
+  
 struct thread
-  {
-    /* Owned by thread.c. */
-    tid_t tid;                          /* Thread identifier. */
-    enum thread_status status;          /* Thread state. */
-    char name[16];                      /* Name (for debugging purposes). */
-    uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
-    int64_t wakeup_time;
+{
+  /* Owned by thread.c. */
+  tid_t tid;                          /* Thread identifier. */
+  enum thread_status status;          /* Thread state. */
+  char name[16];                      /* Name (for debugging purposes). */
+  uint8_t *stack;                     /* Saved stack pointer. */
+  int priority;                       /* Priority. */
+  struct list_elem allelem;           /* List element for all threads list. */
+  int64_t wakeup_time;
 
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
-    struct list_elem timer_elem;		/* new struct member timer_elem */
-#ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
-#endif
+  /* Shared between thread.c and synch.c. */
+  struct list_elem elem;              /* List element. */
+  struct list_elem timer_elem;    /* new struct member timer_elem */
+  #ifdef USERPROG
+  /* Owned by userprog/process.c. */
+  uint32_t *pagedir;                  /* Page directory. */
+  #endif
 
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
-  };
+  /* Owned by thread.c. */
+  unsigned magic;                     /* Detects stack overflow. */
+};
+
+-> IN thread.h
+
+bool wakeup_inorder (const struct list_elem *left, const struct list_elem *right, void *aux UNUSED);
+
+-> IN thread.c
+
+bool
+wakeup_inorder (const struct list_elem *left,
+const struct list_elem *right, void *aux UNUSED)
+{
+  const struct thread *tleft = list_entry (left, struct thread, timer_elem);
+  const struct thread *tright = list_entry (right, struct thread, timer_elem);
+
+  if (tleft->wakeup_time != tright->wakeup_time)
+    return tleft->wakeup_time < tright->wakeup_time;
+  else
+    return tleft->priority > tright->priority;
+}
 
 
-IN thread.c
-
-  bool wakeup_inorder (const struct list_elem *left, const struct list_elem *right, void *aux UNUSED);
-
-
-IN timer.c
+-> IN timer.c
 
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
-  ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-   thread_yield ();
 
   /**** Interrupt design sleep ****/
   
-  struct thread *th = thread_current();
+  struct thread *th = thread_current();     // Current thread
   
-  enum intr_level old_level;
-  //printf("Before block");
-  old_level = intr_disable();
+  enum intr_level old_level;                // Create enumeration of interrupt level
+  
+  old_level = intr_disable();               // Disable the interrupt and assign the previous value
   ASSERT (intr_get_level () == INTR_OFF);
 
-  th->wakeup_time = timer_ticks () + ticks;
-  //printf("Before block 2");
-  list_insert_ordered(&timer_wait_list, &th->timer_elem, wakeup_inorder, NULL);
-  //printf("Before block 3");
-  thread_block();
-  intr_set_level (old_level);
-  //printf("aft block\n");
-
+  th->wakeup_time = timer_ticks () + ticks;   // Set wakeup time for the thread
+  
+  list_insert_ordered(&timer_wait_list, &th->timer_elem, wakeup_inorder, NULL);  // Insert it with other 
+                                                                                  //threads
+  
+  thread_block();                       // Block the execution of the thread
+  intr_set_level (old_level);           // Reset the interrupt level to previous value
   
 }
 
 
-IN timer.c
+-> IN timer.c
 
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  struct thread *th;
-  /** Thread interrupt helper **/
-  enum intr_level old_level;
-  old_level = intr_disable ();
-  while (!list_empty (&timer_wait_list))
-  { 
-    th = list_entry (list_front (&timer_wait_list), struct thread, timer_elem);
 
-    if (ticks < th->wakeup_time)
+  /** Thread interrupt helper **/
+
+  struct thread *th;
+
+  enum intr_level old_level;            // Create enumeration of the interrupt level
+
+  old_level = intr_disable ();          // Disable the interrupt service
+
+  while (!list_empty (&timer_wait_list))    // Loop through the wait list of threads
+  { 
+    th = list_entry (list_front (&timer_wait_list), struct thread, timer_elem);   // Take the front thread
+                                                                  // as this would have the least wakeup time
+    if (ticks < th->wakeup_time)            // Check for time overflow
       break;
     
-    thread_unblock(th);
-    list_pop_front (&timer_wait_list);
+    thread_unblock(th);                     // Unblock the thread if time has passed
+    list_pop_front (&timer_wait_list);      // Remove the thread from the list
   }
   
-  intr_set_level (old_level);
-  //printf("Unblock\n");
+  intr_set_level (old_level);               // At last set the interrupt level to previous value
+  
 }
 
   
@@ -122,20 +132,29 @@ timer_interrupt (struct intr_frame *args UNUSED)
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
+Ans : Once a call is made to the timer_sleep() function then the wakeup_time parameter of the thread is updated and the thread is put in a waiting list. After that the thread is blocked from execution. In the timer interrupt handler the waiting list is checked in a loop for processes that have crossed their time limits and the corresponding processes are unblocked.
+
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+
+Ans : The processes in the waiting list are inserted in ordered fashion, so if a process's wakeup time didn't crossed the limit then the next processes are not checked.  
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
+Ans : Inside the timer sleep the wakeup_time parameter is updated for each thread and the threads are put in the waiting list. So it does not matter which thread goes first inside the list, because they are always in ordered fashion. 
+
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+
+Ans : In the timer interrupt the full list is checked for the wakeup_time. So the race condition does not arise as the function checks all the threads' wakeup_time.
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
+Ans : This design avoids busy waiting. Also there are other designs which considers a sleeping state for the threads but this design works directly with the blocking state.
 
