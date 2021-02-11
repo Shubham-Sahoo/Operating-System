@@ -144,7 +144,7 @@ Ans : The processes in the waiting list are inserted in ordered fashion, so if a
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
-Ans : Inside the timer sleep the wakeup_time parameter is updated for each thread and the threads are put in the waiting list. So it does not matter which thread goes first inside the list, because they are always in ordered fashion. 
+Ans : Inside the timer sleep the wakeup_time parameter is updated for each thread and the threads are put in the waiting list. So it does not matter which thread goes first inside the list, because they are always in ordered fashion. If some threads have same waiting time, then their position is decided according to their priorities.
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
