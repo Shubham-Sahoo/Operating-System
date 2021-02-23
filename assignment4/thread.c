@@ -123,21 +123,33 @@ thread_start (void)
 void
 thread_tick (void) 
 {
-  struct thread *t = thread_current ();
+  struct thread *t = thread_current();
 
-  /* Update statistics. */
-  if (t == idle_thread)
-    idle_ticks++;
+	if (thread_mlfqs)
+	{
+		mlfqs_computations(t);
+	}
+
+	/* Update statistics. */
+	if (t == idle_thread)
+		idle_ticks++;
 #ifdef USERPROG
-  else if (t->pagedir != NULL)
-    user_ticks++;
+	else if (t->pagedir != NULL)
+		user_ticks++;
 #endif
-  else
-    kernel_ticks++;
+	else
+		kernel_ticks++;
 
-  /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
-    intr_yield_on_return ();
+	//Wake up any threads sleeping
+	//Wakes up all threads whose timer has expired
+	if (initialised)
+	{
+		thread_wake();
+	}
+
+	/* Enforce preemption. */
+	if (++thread_ticks >= TIME_SLICE)
+intr_yield_on_return();
 }
 
 /* Prints thread statistics. */
