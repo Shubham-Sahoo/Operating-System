@@ -374,8 +374,7 @@ thread_set_nice (int new_nice)
 	struct thread *t = thread_current();
 	struct list_elem *e;
 
-	validate_data(&nice, 2);
-
+	validate_data(&new_nice, 2);
 	t->nice = new_nice;
 
 	t->priority = ((PRI_MAX * (1 << 14)) - (t->recent_cpu / 4)- (t->nice * (1 << 14) * 2)) / (1 << 14);
