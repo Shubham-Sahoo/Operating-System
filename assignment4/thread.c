@@ -410,8 +410,10 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  enum intr_level original_interrupt_state = intr_disable();
+	int value = ((load_avg * 100) + (1 << 14) / 2) / (1 << 14);
+	intr_set_level(original_interrupt_state);
+return value;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
