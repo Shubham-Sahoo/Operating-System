@@ -377,7 +377,7 @@ thread_set_nice (int new_nice)
 	validate_data(&new_nice, 2);
 	t->nice = new_nice;
 
-	t->priority = ((PRI_MAX * (1 << 14)) - (t->recent_cpu / 4)- (t->nice * (1 << 14) * 2)) / (1 << 14);
+	t->priority = PRI_MAX - ( t->recent_cpu )/4 - t->nice;
 	validate_data(&t->priority, 1);
 
 	//Yield the current thread immediately if it's priority becomes less than
@@ -410,7 +410,7 @@ int
 thread_get_load_avg (void) 
 {
   enum intr_level original_interrupt_state = intr_disable();
-	int value = ((load_avg * 100) + (1 << 14) / 2) / (1 << 14);
+	int value = 100 * load_avg;
 	intr_set_level(original_interrupt_state);
 return value;
 }
@@ -421,7 +421,7 @@ thread_get_recent_cpu (void)
 {
   	struct thread *t = thread_current();
 	enum intr_level original_interrupt_state = intr_disable();
-	int value = (t->recent_cpu * 100)/(1<<14);
+	int value = (t->recent_cpu * 100);
 	intr_set_level(original_interrupt_state);
 	return value;
 }
@@ -659,11 +659,7 @@ inline void calculate_load_avg()
 		ready_threads = ready_threads + 1;
 	}
 
-	ready_threads = (ready_threads * (1 << 14)) / 60;
-
-	coefficient = (59 * (1 << 14)) / 60;
-
-	load_avg = (((int64_t) load_avg) * coefficient / (1 << 14)) + ready_threads;
+	load_avg = (59/60)*load_avg + (1/60)*ready_threads;
 }
 inline void calculate_recent_cpu()
 {
@@ -678,10 +674,8 @@ inline void calculate_recent_cpu()
 		ASSERT(is_thread(t));
 
 		
-		coefficient = (((int64_t) (2 * load_avg)) * (1 << 14))
-				/ (2 * load_avg + (1 * (1 << 14)));
-		t->recent_cpu = (((int64_t) coefficient) * t->recent_cpu / (1 << 14))
-				+ (t->nice * (1 << 14));
+	
+		t->recent_cpu = ((2*load_avg)/(2*load_avg+1))*recent_cpu + t->nice;
 
 	}
 }
@@ -703,8 +697,7 @@ inline void calculate_priority_mlfqs()
 inline void calculate_thread_priority_mlqfs(struct thread *t)
 {
 	ASSERT(intr_get_level() == INTR_OFF);
-	t->priority = (((PRI_MAX * (1 << 14)) - (t->recent_cpu / 4)
-			- (t->nice * 2 * (1 << 14))) / (1 << 14));
+	t->priority = PRI_MAX - ( t->recent_cpu )/4 - t->nice;
 	validate_data(&t->priority, 1);
 }
 
