@@ -422,8 +422,4 @@ system performance.
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
 
-Fixed points calculations were implemented because measuring recent_cpu and
-load_avg are floating point operations, which are not available in pintos. Hence, to perform
-precise calculations to ensure fair scheduling we implemented it.
-We created a new header file with macros defined for different types of fixed point
-calculations. This makes the code in threads/threads.c cleaner and more readable
+fixed point increments are implemented using fixed_point_real_increment function
