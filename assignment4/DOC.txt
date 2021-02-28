@@ -203,7 +203,7 @@ void thread_set_nice (int new_nice)
 	validate_data(&new_nice, 2);
 	t->nice = new_nice;
 
-	t->priority = PRI_MAX - ( t->recent_cpu )/4 - t->nice;
+	t->priority = PRI_MAX - ( t->recent_cpu )/4 - 2 * t->nice;
 	validate_data(&t->priority, 1);
 
 	//Yield the current thread immediately if it's priority becomes less than
@@ -322,7 +322,7 @@ inline void calculate_priority_mlfqs()
 inline void calculate_thread_priority_mlqfs(struct thread *t)
 {
 	ASSERT(intr_get_level() == INTR_OFF);
-	t->priority = PRI_MAX - ( t->recent_cpu )/4 - t->nice;
+	t->priority = PRI_MAX - ( t->recent_cpu )/4 - 2*t->nice;
 	validate_data(&t->priority, 1);
 }
 
