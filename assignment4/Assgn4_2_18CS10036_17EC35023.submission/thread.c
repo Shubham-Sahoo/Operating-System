@@ -16,7 +16,7 @@
 #include "userprog/process.h"
 #endif
 
-
+#define TIMER_FREQ 100
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -38,7 +38,6 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
-
 
 
 /* Stack frame for kernel_thread(). */
@@ -66,7 +65,7 @@ bool thread_mlfqs;
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
-//static void wakeup (void *aux UNUSED);
+static void thread_wake_fn (void);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
@@ -75,7 +74,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-void thread_wake(void);
+
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -98,12 +98,14 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  //list_init (&wakeup_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -115,7 +117,7 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+  thread_create ("wakeup", PRI_MAX, thread_wake_fn, &idle_started);
   /* Start preemptive thread scheduling. */
   intr_enable ();
 
@@ -166,7 +168,7 @@ thread_tick (void)
 
 	//Wake up any threads sleeping
 	//Wakes up all threads whose timer has expired
-  size_t timer_wait_len = list_size(&timer_wait_list);
+  //size_t timer_wait_len = list_size(&timer_wait_list);
 	// if (timer_wait_len>0)
 	// {
 	// 	//thread_wake();
@@ -178,30 +180,6 @@ thread_tick (void)
 intr_yield_on_return();
 }
 
-// void
-// thread_wake()
-// {
-//   struct thread *th;
-
-//   enum intr_level old_level;            // Create enumeration of the interrupt level
-
-//   old_level = intr_disable ();          // Disable the interrupt service
-
-//   while (!list_empty (&timer_wait_list))    // Loop through the wait list of threads
-//   { 
-//     th = list_entry (list_front (&timer_wait_list), struct thread, timer_elem);   // Take the front thread
-//                                                                   // as this would have the least wakeup time
-//     if (thread_ticks < th->wakeup_time)            // Check for time overflow
-//       break;
-    
-//     thread_unblock(th);                     // Unblock the thread if time has passed
-//     list_pop_front (&timer_wait_list);      // Remove the thread from the list
-//   }
-  
-//   //thread_block(wakeup);
-//   intr_set_level (old_level);               // At last set the interrupt level to previous value
-
-// }
 
 /* Prints thread statistics. */
 void
@@ -267,6 +245,14 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+
+  if(name=="wakeup")
+  {
+    wake_thread = t;
+    intr_set_level (old_level);
+    thread_unblock (t);
+    return tid;
+  }
 
   intr_set_level (old_level);
 
@@ -786,6 +772,55 @@ inline void fixed_point_real_increment(int *original, int value)
 	*original = ((*original) + (value * (1 << 14)));
 }
 
+void
+thread_wake_fn(void)
+{   
+  enum intr_level old_level;            // Create enumeration of the interrupt level
+  printf("Here");
+  old_level = intr_disable ();          // Disable the interrupt service
+  struct list *timer_wait;
+  int64_t tick_val;
+  list_init(&timer_wait);
+  timer_wait = get_timer_list();
+  tick_val = get_tick_val();
+  thread_wake(timer_wait,tick_val);
+  thread_block();
+  intr_set_level (old_level);               // At last set the interrupt level to previous value
+  
+
+}
+
+void
+thread_wake(struct list *timer_wait_list,int64_t ticks)
+{
+  struct thread *th;
+
+  enum intr_level old_level;            // Create enumeration of the interrupt level
+  //printf("Here");
+  old_level = intr_disable ();          // Disable the interrupt service
+
+  while (!list_empty (timer_wait_list))    // Loop through the wait list of threads
+  { 
+    th = list_entry (list_front (timer_wait_list), struct thread, timer_elem);   // Take the front thread
+                                                                  // as this would have the least wakeup time
+    //printf(" hello ");
+    if (ticks < th->wakeup_time)            // Check for time overflow
+      break;
+
+    
+    thread_unblock(th);                     // Unblock the thread if time has passed
+    
+    list_pop_front (timer_wait_list);      // Remove the thread from the list
+  }
+
+  if (!list_empty (timer_wait_list))
+    wake_thread->wakeup_time = list_entry (list_front (timer_wait_list), struct thread, timer_elem)->wakeup_time;
+  //thread_block(wakeup);
+  intr_set_level (old_level);               // At last set the interrupt level to previous value
+  //printf(" there\n");
+  return 0;
+}
+
 /* Returns a tid to use for a new thread. */
 static tid_t
 allocate_tid (void) 
@@ -799,6 +834,8 @@ allocate_tid (void)
 
   return tid;
 }
+
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

@@ -111,7 +111,8 @@ struct thread
 extern bool thread_mlfqs;
 int load_avg;
 
-static struct list timer_wait_list;
+struct thread *wake_thread;
+static void thread_wake_fn(void);
 
 void thread_init (void);
 void thread_start (void);
