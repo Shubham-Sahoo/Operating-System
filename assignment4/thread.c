@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -38,6 +39,8 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
   {
@@ -63,6 +66,7 @@ bool thread_mlfqs;
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
+//static void wakeup (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
@@ -71,6 +75,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+void thread_wake(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -116,6 +121,25 @@ thread_start (void)
 
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
+
+  //Wakeup thread
+  //enum intr_level old_level;            // Create enumeration of the interrupt level
+
+  //old_level = intr_disable();
+
+  // struct semaphore wakeup_started;
+  // sema_init (&wakeup_started, 0);
+  // thread_create ("wakeup", PRI_MAX, thread_wake, &wakeup_started);
+
+  // /* Start preemptive thread scheduling. */
+  //intr_set_level (old_level); 
+
+  // /* Wait for the idle thread to initialize idle_thread. */
+
+  // sema_down (&wakeup_started);
+
+
+
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -142,15 +166,42 @@ thread_tick (void)
 
 	//Wake up any threads sleeping
 	//Wakes up all threads whose timer has expired
-	if (initialised)
-	{
-		thread_wake();
-	}
+  size_t timer_wait_len = list_size(&timer_wait_list);
+	// if (timer_wait_len>0)
+	// {
+	// 	//thread_wake();
+ //    //thread_unblock(wakeup);
+	// }
 
 	/* Enforce preemption. */
 	if (++thread_ticks >= TIME_SLICE)
 intr_yield_on_return();
 }
+
+// void
+// thread_wake()
+// {
+//   struct thread *th;
+
+//   enum intr_level old_level;            // Create enumeration of the interrupt level
+
+//   old_level = intr_disable ();          // Disable the interrupt service
+
+//   while (!list_empty (&timer_wait_list))    // Loop through the wait list of threads
+//   { 
+//     th = list_entry (list_front (&timer_wait_list), struct thread, timer_elem);   // Take the front thread
+//                                                                   // as this would have the least wakeup time
+//     if (thread_ticks < th->wakeup_time)            // Check for time overflow
+//       break;
+    
+//     thread_unblock(th);                     // Unblock the thread if time has passed
+//     list_pop_front (&timer_wait_list);      // Remove the thread from the list
+//   }
+  
+//   //thread_block(wakeup);
+//   intr_set_level (old_level);               // At last set the interrupt level to previous value
+
+// }
 
 /* Prints thread statistics. */
 void
@@ -370,7 +421,7 @@ thread_get_priority (void)
 void
 thread_set_nice (int new_nice) 
 {
-  	enum intr_level original_interrupt_state = intr_disable();
+  enum intr_level original_interrupt_state = intr_disable();
 	struct thread *t = thread_current();
 	struct list_elem *e;
 
@@ -402,7 +453,7 @@ intr_set_level(original_interrupt_state);
 int
 thread_get_nice (void) 
 {
-  return thread_current->nice;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -419,7 +470,7 @@ return value;
 int
 thread_get_recent_cpu (void) 
 {
-  	struct thread *t = thread_current();
+  struct thread *t = thread_current();
 	enum intr_level original_interrupt_state = intr_disable();
 	int value = (t->recent_cpu * 100)/(1<<14);
 	intr_set_level(original_interrupt_state);
@@ -627,7 +678,7 @@ const struct list_elem *right, void *aux UNUSED)
 //mlfqs computations
 inline void mlfqs_computations(struct thread *t)
 {
-	if (initialised)
+	//if (initialised)
 	{
 		int64_t current_ticks = timer_ticks();
 		fixed_point_real_increment(&t->recent_cpu, 1);
@@ -637,7 +688,7 @@ inline void mlfqs_computations(struct thread *t)
 		}
 		if ((current_ticks % 4) == 0)
 		{
-			calculate_thread_priority_mlqfs(t);
+			calculate_thread_priority_mlfqs(t);
 		}
 	}
 }
@@ -679,7 +730,7 @@ inline void calculate_recent_cpu()
 
 		
 		coefficient = (((int64_t) (2 * load_avg)) * (1 << 14))
-				/ (2 * load_avg + (1 * (1 << 14)));
+				/ (2 * load_avg + (1 * (1 << 14)));                       // 2*l+1
 		t->recent_cpu = (((int64_t) coefficient) * t->recent_cpu / (1 << 14))
 				+ (t->nice * (1 << 14));
 
@@ -696,11 +747,11 @@ inline void calculate_priority_mlfqs()
 		struct thread *t = list_entry(e, struct thread, allelem);
 		ASSERT(is_thread(t));
 
-		calculate_thread_priority_mlqfs(t);
+		calculate_thread_priority_mlfqs(t);
 	}
 }
 
-inline void calculate_thread_priority_mlqfs(struct thread *t)
+inline void calculate_thread_priority_mlfqs(struct thread *t)
 {
 	ASSERT(intr_get_level() == INTR_OFF);
 	t->priority = (((PRI_MAX * (1 << 14)) - (t->recent_cpu / 4)

@@ -111,6 +111,8 @@ struct thread
 extern bool thread_mlfqs;
 int load_avg;
 
+static struct list timer_wait_list;
+
 void thread_init (void);
 void thread_start (void);
 
@@ -151,5 +153,5 @@ inline void calculate_all(void);
 inline void calculate_load_avg(void);
 inline void calculate_recent_cpu(void);
 inline void calculate_priority_mlfqs(void);
-inline void calculate_thread_priority_mlqfs(struct thread *t);
+inline void calculate_thread_priority_mlfqs(struct thread *t);
 #endif /* threads/thread.h */
