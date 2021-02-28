@@ -725,7 +725,7 @@ inline void validate_data(int *data, int type) //1-priority; 2-nice value
 
 inline void fixed_point_real_increment(int *original, int value)
 {
-	*original = ((*original) + (value * (1 << 14)));
+	*original = *original + value ;
 }
 
 /* Returns a tid to use for a new thread. */
