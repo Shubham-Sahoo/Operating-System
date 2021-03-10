@@ -61,7 +61,7 @@ void *producer(void *pno)
 
         
         
-
+        if(memory.job_created >= jobs) break;
         int sltime = rand()%4;
         sleep(sltime);
 
@@ -108,7 +108,7 @@ void *consumer(void *cno)
         int sltime = rand()%4;
         sleep(sltime);
         int x;
-
+        if(memory.job_completed >= jobs) break;
         sem_wait(&full);
         pthread_mutex_lock(&mutex);
 
@@ -126,7 +126,7 @@ void *consumer(void *cno)
         else
         {
             pthread_mutex_unlock(&mutex);
-            sem_post(&empty);
+           sem_post(&empty);
             break;
 
         }
