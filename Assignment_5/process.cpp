@@ -15,17 +15,18 @@ using namespace std;
 
 
 static int prod_number;
+int total_jobs;
 
 typedef struct job
 {
-	pid_t proc_id;
+	int proc_id;
 	int prod_no;
 	int priority;
-	int time;
-	int job_id;
+	int cp_time;
+	long int job_id;
 
-	job(pid_t proc_id, int prod_no, int priority, int time, int job_id)
-        : proc_id(proc_id), prod_no(prod_no),priority(priority),time(time),job_id(job_id)
+	job(pid_t proc_id, int prod_no, int priority, int cp_time, long int job_id)
+        : proc_id(proc_id), prod_no(prod_no),priority(priority),cp_time(cp_time),job_id(job_id)
     {
     }
 }job;
@@ -41,10 +42,11 @@ struct Compare_pr {
 
 void producer(int id)
 {	
-	srand(time(0));
+	srand(getpid());
 
-	int r = rand()%4;
-	cout<<"Process "<<getpid()<<" "<<r<<endl;
+	int r = rand();
+	r = r%4;
+	//cout<<"Process "<<getpid()<<" "<<r<<endl;
 	sleep(r);
 
 	key_t key4 = 0x1031;
@@ -75,31 +77,44 @@ void producer(int id)
 
 	priority_queue<job, vector<job>, Compare_pr> *cqueue;
 	cqueue = (priority_queue<job, vector<job>, Compare_pr> *)shmat(id3, NULL, 0);
-	cout<<"Producer "<<*job_created<<"\t"<<cqueue->size()<<endl;
+
 	//cout<<"hi"<<flush;
 	int pr = 1+(rand()%10);
-	int j_id = 1+(rand()%100);
+	long int j_id = 1+(rand()%100000);
 	int cmp = 1+(rand()%4);
-	
+
 	job el(getpid(),id,pr,cmp,j_id);
 	//job el(0,1,3,2,);
-	if(*job_created<10)
+	if(*job_created<total_jobs)
 	{	
 		if(cqueue->size()<8)
-		{
-			cqueue->push(el);
+		{	
+			
+			*job_created += 1;
+			// cout<<*job_created<<" "<<*job_completed<<" "<<el.time<<" "<<id<<endl;
+			cout<<"Producer : "<<el.prod_no<<endl;
+			cout<<"Producer pid : "<<el.proc_id<<endl;
+			cout<<"Priority : "<<el.priority<<endl;
+			cout<<"Compute Time : "<<el.cp_time<<endl;
+			(*cqueue).push(el);
 		}
 		else
 		{
-			while(cqueue->size()>=8);
-			cqueue->push(el);
+			//while(cqueue->size()>=8);
+			//cqueue->push(el);
+			// shmdt(job_completed);
+			// shmdt(cqueue);
+			
+			// pthread_mutex_unlock(lock);
+
+			// pthread_mutex_destroy(lock);
+			// shmdt(lock);
 		}
 		//cout<<*job_created<<" "<<*job_completed<<" "<<el.time<<" "<<id<<endl<<flush;
 		//cout<<(&(seg)-0x1)<<endl;
 
 		//int a = 45;
-		*job_created += 1;
-		cout<<*job_created<<" "<<*job_completed<<" "<<el.time<<" "<<id<<endl<<flush;
+		
 	}
 
 	
@@ -113,18 +128,25 @@ void producer(int id)
 
 	pthread_mutex_destroy(lock);
 	shmdt(lock);
-	if(*job_created<10)
+	sleep(1);
+	if(*job_created<total_jobs)
 	{	
 		//cout<<"Here"<<endl<<flush;
+		shmdt(job_created);
 		producer(id);
+		exit(0);
 	}
-	shmdt(job_created);
+	else
+	{
+		shmdt(job_created);
+		exit(0);
+	}
 	exit(0);
 }
 
 void consumer(int id)
 {	
-	srand(time(0));
+	srand(getpid());
 	int r = rand()%4;
 	sleep(r);
 
@@ -153,18 +175,30 @@ void consumer(int id)
 	job_created = (int*)shmat(id1, NULL, 0);
 	job_completed = (int*)shmat(id2, NULL, 0);
 
-	priority_queue<job, vector<job>, Compare_pr> *cqueue;
-	cqueue = (priority_queue<job, vector<job>, Compare_pr> *)shmat(id3, NULL, 0);
-	cout<<"Consumer "<<*job_completed<<"\t"<<cqueue->size()<<endl;
-	job el(0,0,0,0,0);
+	priority_queue<job, vector<job>, Compare_pr> *queue;
+	queue = (priority_queue<job, vector<job>, Compare_pr> *)shmat(id3, NULL, 0);
+	priority_queue<job, vector<job>, Compare_pr> qp_val;
+	qp_val = *queue;
+
+	//cout<<"Consumer "<<qp_val.size()<<" "<<(qp_val.top()).proc_id<<endl;
 	
+	int sl_time=0;
 	if(*job_completed<*job_created)
 	{
-		if(cqueue->size()>0)
-		{
-			el = cqueue->top();
-			cqueue->pop();
-			cout<<*job_created<<" "<<*job_completed<<" "<<el.time<<" "<<id<<endl<<flush;
+		if(queue->size()>0)
+		{	
+			//job el(0,0,0,0,0);
+			job el = (*queue).top();
+			//el.cp_time = 4;
+			//cout<<"check : "<<((*queue).top()).cp_time<<endl;
+			cout<<"Consumer : "<<id<<endl;
+			cout<<"Consumer pid : "<<getpid()<<endl;
+			cout<<"Producer : "<<el.prod_no<<endl;
+			cout<<"Producer pid: "<<el.proc_id<<endl;
+			cout<<"Priority : "<<el.priority<<endl;
+			cout<<"Compute Time : "<<el.cp_time<<endl;
+			sl_time = el.cp_time;
+			queue->pop();
 		}
 		else
 		{
@@ -193,22 +227,29 @@ void consumer(int id)
 	//cout<<*(&seg-1);
 	//cout<<(&(seg)-0x1)<<endl;
 	
-	
-	shmdt(cqueue);
+	shmdt(queue);
 	pthread_mutex_unlock(lock);
 
 	pthread_mutex_destroy(lock);
 	
 	shmdt(lock);
 	//cout<<"hi"<<flush;
-	sleep(el.time);
+	sleep(sl_time);
 	if(*job_completed<*job_created)
 	{	
 		//cout<<"hi"<<endl<<flush;
+		shmdt(job_completed);
+		shmdt(job_created);
 		consumer(id);
+		exit(0);
 	}
-	shmdt(job_completed);
-	shmdt(job_created);
+	else
+	{
+		shmdt(job_completed);
+		shmdt(job_created);	
+		exit(0);
+	}
+	
 	exit(0);
 }
 
@@ -221,20 +262,20 @@ int main()
 	cout<<"Enter number of consumers :"<<endl;
 	cin>>no_c;
 	cout<<"Enter the number of jobs :"<<endl;
-	cin>>no_j; 
+	cin>>::total_jobs; 
 
 	//job p_queue[8];
-	priority_queue<job, vector<job>, Compare_pr> p_queue;
-	cout<<sizeof(p_queue);
-	job a(1,1,5,4,2);
-	a.proc_id = 1;
-	a.prod_no = 1;
-	a.priority = 5;
-	a.time = 4;
-	a.job_id = 2;
-	p_queue.push(a);
-	job s = p_queue.top();
-	cout<<(s).time<<endl;	
+	// priority_queue<job, vector<job>, Compare_pr> p_queue;
+	// cout<<sizeof(p_queue);
+	// job a(1,1,5,4,2);
+	// a.proc_id = 1;
+	// a.prod_no = 1;
+	// a.priority = 5;
+	// a.cp_time = 0;
+	// a.job_id = 2;
+	// p_queue.push(a);
+	// job s = p_queue.top();
+	// cout<<(s).cp_time<<endl;	
 	key_t key1 = 0x1027;
 	key_t key2 = 0x1028;
 	key_t key3 = 0x1029;
@@ -307,7 +348,7 @@ int main()
 	{
 		if(fork()==0)
 		{	
-			producer(prod_number++);
+			producer(0);
 
 			//exit(0);
 		}
@@ -317,7 +358,7 @@ int main()
 	{
 		if(fork()==0)
 		{	
-			consumer(prod_number++);
+			consumer(0);
 			//cout<<"cons process"<<endl;
 			//exit(0);
 		}
@@ -328,113 +369,6 @@ int main()
 		wait(NULL);
 	}
 
-	// int pid = fork();
-
-	// if(pid==0)
-	// {
-	// 	// int b = stoi("123");
-	// 	// cout<<b;
-		
-	// 	key_t key1 = 0x1023;
-	// 	key_t key2 = 0x1024;
-	// 	key_t key3 = 0x1025;
-	// 	key_t key4 = 0x1026;
-	// 	int id1 = shmget(key1, 1, IPC_EXCL | 0666);
-	// 	int id2 = shmget(key2, 1, IPC_EXCL | 0666);
-	// 	int id3 = shmget(key3, 512, IPC_EXCL | 0666);
-	// 	int id4 = shmget(key4, 1, IPC_CREAT | 0666);
-	// 	int *seg1,*seg2;
-	// 	pthread_mutex_t *lock;
-	// 	lock = (pthread_mutex_t*)shmat(id4, NULL, 0);
-	// 	if (pthread_mutex_init(lock, NULL) != 0) { 
-	//         printf("\n mutex init has failed\n"); 
-	//         return 1; 
-	//     }
-	//     pthread_mutex_lock(lock);
-
-	// 	seg1 = (int*)shmat(id1, NULL, 0);
-	// 	seg2 = (int*)shmat(id2, NULL, 0);
-
-	// 	priority_queue<job, vector<job>, Compare_pr> *cqueue;
-	// 	cqueue = (priority_queue<job, vector<job>, Compare_pr> *)shmat(id3, NULL, 0);
-	// 	cout<<*seg1<<" "<<*seg2<<" "<<(cqueue->top()).time<<endl<<flush;
-	// 	sleep(2);
-	// 	//cout<<(&(seg)-0x1)<<endl;
-
-	// 	//int a = 45;
-	// 	*seg1 -= 1;
-	// 	*seg2 += 1;
-	// 	//cout<<*(&seg-1);
-	// 	//cout<<(&(seg)-0x1)<<endl;
-	// 	pthread_mutex_unlock(lock);
-
-	// 	pthread_mutex_destroy(lock);
-	// 	shmdt(seg1);
-	// 	shmdt(seg2);
-	// 	shmdt(cqueue);
-	// 	shmdt(lock);
-	// 	exit(0);
-
-	// 	// key_t key = ftok("shmfile",65); 
-  
-	//  //    shmget returns an identifier in shmid 
-	//  //    int shmid = shmget(key,1024,0666|IPC_CREAT); 
-	  
-	//  //    shmat to attach to shared memory 
-	//  //    char *str = (char*) shmat(shmid,(void*)0,0); 
-	  
-	//  //    printf("Data read from memory: %s\n",str); 
-	      
-	//  //    //detach from shared memory  
-	//  //    shmdt(str); 
-	    
-	//  //    // destroy the shared memory 
-	//  //    shmctl(shmid,IPC_RMID,NULL); 
-	     
-	//     //return 0; 
-
-	// }
-
-	// else
-	// {
-
-	// 	wait(NULL);
-
-	// 	// int pid = fork();
-
-	// 	// if(pid==0)
-	// 	// {
-
-	// 	// 	char *a = "jkl";
-	// 	// 	myseg = a;
-	// 	// 	cout<<string(myseg);
-	// 	// 	cout<<&myseg<<endl;
-	// 	// 	exit(0);
-	// 	// }
-
-	// 	//else
-	// 	// {	
-	// 	// 	//wait(NULL);
-	// 		key_t key1 = 0x1023;
-	// 		key_t key2 = 0x1024;
-	// 		int id1 = shmget(key1, 1, IPC_EXCL | 0666);
-	// 		int id2 = shmget(key2, 1, IPC_EXCL | 0666);
-	// 		int *seg1,*seg2;
-	// 		seg1 = (int*)shmat(id1, NULL, 0);
-	// 		seg2 = (int*)shmat(id2, NULL, 0);
-	// 		cout<<*seg1<<" "<<*seg2<<endl<<flush;
-	// 		//cout<<string(myseg);
-	// 		//cout<<&myseg<<endl;
-	// 		shmdt(seg1);
-	// 		shmdt(seg2);
-
-	// 		shmctl(id1, IPC_RMID, NULL);
-	// 		shmctl(id2, IPC_RMID, NULL);
-
-	// 	// 	return 0;	
-	// 	// }
-	// 	return 0;	
-	// }
 
 	shmctl(shmid1, IPC_RMID, NULL);
 	shmctl(shmid2, IPC_RMID, NULL);
