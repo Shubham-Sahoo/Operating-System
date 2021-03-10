@@ -49,8 +49,6 @@ void *producer(void *pno)
    {
 
         
-        sem_wait(&empty);
-        pthread_mutex_lock(&mutex);
         
         job j;
         j.priority = rand()%10 + 1;
@@ -61,6 +59,12 @@ void *producer(void *pno)
 
         int sltime = rand()%4;
         sleep(sltime);
+
+
+        sem_wait(&empty);
+        pthread_mutex_lock(&mutex);
+        
+        
         
         PRQ.push(j);
 
@@ -69,6 +73,7 @@ void *producer(void *pno)
         
         pthread_mutex_unlock(&mutex);
         sem_post(&full);
+        if(job_created >= jobs) break;
         
     }
 }
@@ -78,14 +83,14 @@ void *consumer(void *cno)
     
     while(job_completed < jobs) 
     {
-                
-        sem_wait(&full);
-        pthread_mutex_lock(&mutex);
-        
-
-        
+           
         int sltime = rand()%4;
         sleep(sltime);
+
+
+        sem_wait(&full);
+        pthread_mutex_lock(&mutex);
+
 
         int cons_no = *((int*)cno);
         job c = PRQ.top();
@@ -93,10 +98,12 @@ void *consumer(void *cno)
         
         job_completed ++;
         cout<<"consumer:"<<cons_no<<" "<<"con_thread id:"<<pthread_self()<<" "<<"job id: "<<c.job_id<<" priority:"<<c.priority<<" "<<"compute time:"<<c.compute_time<<" job completed:"<<job_completed<<" queue size: "<<PRQ.size()<<"\n";
-        sleep(c.compute_time);
+    
         
         pthread_mutex_unlock(&mutex);
         sem_post(&empty);
+        if(job_completed >= jobs) break;
+        sleep(c.compute_time);
         
          
     }
