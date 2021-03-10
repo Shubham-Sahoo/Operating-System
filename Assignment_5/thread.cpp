@@ -44,7 +44,7 @@ int NP,NC,jobs;
 void *producer(void *pno)
 {   
     int item;
-    srand(time(0));
+    
    while(job_created <= jobs) 
    {
 
@@ -64,7 +64,7 @@ void *producer(void *pno)
         PRQ.push(j);
         job_created ++ ;
 
-        cout<<"producer:"<<j.producer_num<<" "<<"pro_thread id:"<<j.tid<<" "<<"priority:"<<j.priority<<" "<<"compute time:"<<j.compute_time<<"job created:"<<job_created<<"\n";
+        cout<<"producer:"<<j.producer_num<<" "<<"pro_thread id:"<<pthread_self()<<" "<<"job id: "<<j.job_id<<" priority:"<<j.priority<<" "<<"compute time:"<<j.compute_time<<" job created:"<<job_created<<"\n";
 
         pthread_mutex_unlock(&mutex);
         sem_post(&full);
@@ -73,7 +73,7 @@ void *producer(void *pno)
 void *consumer(void *cno)
 {   
 
-    srand(time(0));
+    
     while(job_completed <= jobs) 
     {
         sem_wait(&full);
@@ -87,7 +87,7 @@ void *consumer(void *cno)
         job_completed ++;
         
 
-        cout<<"consumer:"<<cons_no<<" "<<"con_thread id:"<<pthread_self()<<" "<<"priority:"<<c.priority<<" "<<"compute time:"<<c.compute_time<<" job completed:"<<job_completed<<"\n";
+        cout<<"consumer:"<<cons_no<<" "<<"con_thread id:"<<pthread_self()<<" "<<"job id: "<<c.job_id<<" priority:"<<c.priority<<" "<<"compute time:"<<c.compute_time<<" job completed:"<<job_completed<<"\n";
         
         sleep(c.compute_time);
         
@@ -98,6 +98,7 @@ void *consumer(void *cno)
 
 int main()
 {   
+    srand(time(0));
     cin>>NP>>NC>>jobs;
     pthread_t pro[NP+1],con[NC+1];
     pthread_mutex_init(&mutex, NULL);
@@ -109,10 +110,12 @@ int main()
     for(int i=0;i<NC;i++) {cons[i]=i;}
 
 
-    for(int i = 0; i < NP; i++) {
+    for(int i = 0; i < NP; i++) 
+    {
         pthread_create(&pro[i], NULL, producer, (void *)&pros[i]);
     }
-    for(int i = 0; i < NC; i++) {
+    for(int i = 0; i < NC; i++) 
+    {
         pthread_create(&con[i], NULL, consumer, (void *)&cons[i]);
     }
 
