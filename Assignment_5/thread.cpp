@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
 using namespace std; 
 
 #define BufferSize 8 
@@ -49,7 +50,6 @@ SHM memory;
 
 
 
-
 int NP,NC,jobs;
 
 void *producer(void *pno)
@@ -61,12 +61,6 @@ void *producer(void *pno)
 
         
         
-        job j;
-        j.priority = rand()%10 + 1;
-        j.producer_num = *((int*)pno);
-        j.compute_time = rand()%4 + 1;
-        j.job_id = rand()%100000 + 1;
-        j.tid = pthread_self();
 
         int sltime = rand()%4;
         sleep(sltime);
@@ -78,6 +72,14 @@ void *producer(void *pno)
         
         if(memory.job_created < jobs)
         {
+
+            job j;
+            j.priority = rand()%10 + 1;
+            j.producer_num = *((int*)pno);
+            j.compute_time = rand()%4 + 1;
+            j.job_id = rand()%100000 + 1;
+            j.tid = pthread_self();
+
             memory.PRQ.push(j);
             memory.job_created ++ ;
             cout<<"producer:"<<j.producer_num<<" "<<"pro_thread id:"<<pthread_self()<<" "<<"job id: "<<j.job_id<<" priority:"<<j.priority<<" "<<"compute time:"<<j.compute_time<<" job created:"<<memory.job_created<<" queue size: "<<memory.PRQ.size()<<"\n";
@@ -147,7 +149,7 @@ int main()
     srand(time(0));
     cin>>NP>>NC>>jobs;
     memory.job_created = 0;
-memory.job_completed = 0;
+    memory.job_completed = 0;
     pthread_t pro[NP+1],con[NC+1];
     pthread_mutex_init(&mutex, NULL);
     sem_init(&empty,0,BufferSize);
@@ -157,6 +159,8 @@ memory.job_completed = 0;
     for(int i=0;i<NP;i++) {pros[i]=i;}
     for(int i=0;i<NC;i++) {cons[i]=i;}
 
+
+        
 
     for(int i = 0; i < NP; i++) 
     {
@@ -175,10 +179,12 @@ memory.job_completed = 0;
         pthread_join(con[i], NULL);
     }
     
-   
+    
     pthread_mutex_destroy(&mutex);
     sem_destroy(&empty);
     sem_destroy(&full);
+
+        
 
     return 0;
     
