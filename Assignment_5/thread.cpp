@@ -9,7 +9,7 @@
 #include <sys/wait.h>
 using namespace std; 
 
-#define BufferSize 5 
+#define BufferSize 8 
 
 sem_t empty;
 sem_t full;
@@ -43,11 +43,12 @@ int NP,NC,jobs;
 
 void *producer(void *pno)
 {   
-    int item;
     
-   while(job_created <= jobs) 
+    
+   while( job_created < jobs ) 
    {
 
+        
         sem_wait(&empty);
         pthread_mutex_lock(&mutex);
         
@@ -62,37 +63,42 @@ void *producer(void *pno)
         sleep(sltime);
         
         PRQ.push(j);
+
         job_created ++ ;
-
-        cout<<"producer:"<<j.producer_num<<" "<<"pro_thread id:"<<pthread_self()<<" "<<"job id: "<<j.job_id<<" priority:"<<j.priority<<" "<<"compute time:"<<j.compute_time<<" job created:"<<job_created<<"\n";
-
+        cout<<"producer:"<<j.producer_num<<" "<<"pro_thread id:"<<pthread_self()<<" "<<"job id: "<<j.job_id<<" priority:"<<j.priority<<" "<<"compute time:"<<j.compute_time<<" job created:"<<job_created<<" queue size: "<<PRQ.size()<<"\n";
+        
         pthread_mutex_unlock(&mutex);
         sem_post(&full);
+        
     }
 }
 void *consumer(void *cno)
 {   
 
     
-    while(job_completed <= jobs) 
+    while(job_completed < jobs) 
     {
+                
         sem_wait(&full);
         pthread_mutex_lock(&mutex);
         
+
+        
         int sltime = rand()%4;
         sleep(sltime);
+
         int cons_no = *((int*)cno);
         job c = PRQ.top();
         PRQ.pop();
+        
         job_completed ++;
-        
-
-        cout<<"consumer:"<<cons_no<<" "<<"con_thread id:"<<pthread_self()<<" "<<"job id: "<<c.job_id<<" priority:"<<c.priority<<" "<<"compute time:"<<c.compute_time<<" job completed:"<<job_completed<<"\n";
-        
+        cout<<"consumer:"<<cons_no<<" "<<"con_thread id:"<<pthread_self()<<" "<<"job id: "<<c.job_id<<" priority:"<<c.priority<<" "<<"compute time:"<<c.compute_time<<" job completed:"<<job_completed<<" queue size: "<<PRQ.size()<<"\n";
         sleep(c.compute_time);
         
         pthread_mutex_unlock(&mutex);
         sem_post(&empty);
+        
+         
     }
 }
 
