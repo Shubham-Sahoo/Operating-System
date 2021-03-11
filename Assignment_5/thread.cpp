@@ -181,7 +181,7 @@ int main()
     for(int i = 0; i < NC; i++) {
         pthread_join(con[i], NULL);
     }
-    cout<<"total execution time of jobs "<<(double)(time(NULL) - start) <<"seconds";
+    cout<<"total execution time of jobs "<<(double)(time(NULL) - start) <<" seconds \n";
     
     pthread_mutex_destroy(&mutex);
     sem_destroy(&empty);
