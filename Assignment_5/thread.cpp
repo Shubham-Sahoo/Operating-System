@@ -61,11 +61,11 @@ void *producer(void *pno)
 
         
         
-        if(memory.job_created >= jobs) break;
+       // if(memory.job_created >= jobs) break;
         int sltime = rand()%4;
         sleep(sltime);
 
-
+        if(memory.job_created < jobs)
         sem_wait(&empty);
         pthread_mutex_lock(&mutex);
         
@@ -83,17 +83,21 @@ void *producer(void *pno)
             memory.PRQ.push(j);
             memory.job_created ++ ;
             cout<<"producer:"<<j.producer_num<<" "<<"pro_thread id:"<<pthread_self()<<" "<<"job id: "<<j.job_id<<" priority:"<<j.priority<<" "<<"compute time:"<<j.compute_time<<" job created:"<<memory.job_created<<" queue size: "<<memory.PRQ.size()<<"\n";
+        
+                pthread_mutex_unlock(&mutex);
+                sem_post(&full);
+
         }
         else
         {
             pthread_mutex_unlock(&mutex);
-            sem_post(&full);
+            sem_post(&empty);
+            cout<<"producer thread terminated \n";
             break;
         }
         
         
-        pthread_mutex_unlock(&mutex);
-        sem_post(&full);
+        
         
         
     }
@@ -108,8 +112,8 @@ void *consumer(void *cno)
         int sltime = rand()%4;
         sleep(sltime);
         int x;
-        if(memory.job_completed >= jobs) break;
-        sem_wait(&full);
+        if(memory.job_completed < jobs) 
+            sem_wait(&full);
         pthread_mutex_lock(&mutex);
 
 
@@ -122,11 +126,18 @@ void *consumer(void *cno)
             memory.job_completed ++;
             x = c.compute_time;
             cout<<"consumer:"<<cons_no<<" "<<"con_thread id:"<<pthread_self()<<" "<<"job id: "<<c.job_id<<" priority:"<<c.priority<<" "<<"compute time:"<<c.compute_time<<" job completed:"<<memory.job_completed<<" queue size: "<<memory.PRQ.size()<<"\n";
+        
+             pthread_mutex_unlock(&mutex);
+            sem_post(&empty);
+            
+            sleep(x);
+
         }
         else
         {
             pthread_mutex_unlock(&mutex);
-           sem_post(&empty);
+            sem_post(&full);
+            cout<<"consumer thread terminated \n";
             break;
 
         }
@@ -135,10 +146,7 @@ void *consumer(void *cno)
         
     
         
-        pthread_mutex_unlock(&mutex);
-        sem_post(&empty);
-        
-        sleep(x);
+       
         
          
     }
