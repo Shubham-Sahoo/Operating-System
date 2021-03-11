@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include<time.h>
 
 using namespace std; 
 
@@ -162,7 +163,7 @@ int main()
     for(int i=0;i<NC;i++) {cons[i]=i;}
 
 
-        
+        time_t start = time(NULL);
 
     for(int i = 0; i < NP; i++) 
     {
@@ -180,7 +181,7 @@ int main()
     for(int i = 0; i < NC; i++) {
         pthread_join(con[i], NULL);
     }
-    
+    cout<<"total execution time of jobs "<<(double)(time(NULL) - start) <<"seconds";
     
     pthread_mutex_destroy(&mutex);
     sem_destroy(&empty);
