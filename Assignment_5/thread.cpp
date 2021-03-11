@@ -90,9 +90,10 @@ void *producer(void *pno)
         }
         else
         {
+            cout<<"producer "<<*((int*)pno)<<" thread terminated \n";
             pthread_mutex_unlock(&mutex);
             sem_post(&empty);
-            cout<<"producer "<<*((int*)pno)<<" thread terminated \n";
+            
             break;
         }
         
@@ -135,20 +136,13 @@ void *consumer(void *cno)
         }
         else
         {
+            cout<<"consumer "<< cons_no<<" thread terminated \n";
             pthread_mutex_unlock(&mutex);
             sem_post(&full);
-            cout<<"consumer "<< cons_no<<" thread terminated \n";
+            
             break;
 
         }
-        
-        
-        
-    
-        
-       
-        
-         
     }
 }
 
