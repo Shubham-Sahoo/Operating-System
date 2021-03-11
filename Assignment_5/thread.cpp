@@ -92,7 +92,7 @@ void *producer(void *pno)
         {
             pthread_mutex_unlock(&mutex);
             sem_post(&empty);
-            cout<<"producer thread terminated \n";
+            cout<<"producer "<<*((int*)pno)<<" thread terminated \n";
             break;
         }
         
@@ -137,7 +137,7 @@ void *consumer(void *cno)
         {
             pthread_mutex_unlock(&mutex);
             sem_post(&full);
-            cout<<"consumer thread terminated \n";
+            cout<<"consumer "<< cons_no<<" thread terminated \n";
             break;
 
         }
