@@ -472,6 +472,7 @@ int main()
 	  
 	//printf("Data read from memory: %s\n",st);
 
+	time_t start = time(NULL);
 	prod_number = 0;
 	for(int i=0;i<no_p;i++)
 	{
@@ -503,7 +504,7 @@ int main()
 	}
 
 
-    
+    	cout<<"total execution time of jobs "<<(double)(time(NULL) - start) <<" seconds \n";
 
 	//pthread_mutex_destroy(lock);
 	shmctl(shmid1, IPC_RMID, NULL);

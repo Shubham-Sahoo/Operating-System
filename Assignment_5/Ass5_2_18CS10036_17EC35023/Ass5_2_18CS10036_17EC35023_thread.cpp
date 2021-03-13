@@ -150,6 +150,7 @@ void *consumer(void *cno)
 int main()
 {   
     srand(time(0));
+    cout<<"Enter the number of producers, consumers and jobs :"<<endl;
     cin>>NP>>NC>>jobs;
     memory.job_created = 0;
     memory.job_completed = 0;
