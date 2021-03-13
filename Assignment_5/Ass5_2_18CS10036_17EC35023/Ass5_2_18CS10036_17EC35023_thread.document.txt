@@ -1,0 +1,7 @@
+Algorithmic changes :
+
+1) We have used mutex and semaphores for mutual exclusion of threads and only semaphores for mutual exclusion of multi-processes.
+2) In both the codes we have created a struct of priority queue, job completed and job created and allocated that shared memory.
+3) In the multi-process code the priority queue is made up of array because the static allocation of shared memory.
+4) Using mutex for multi-process code gave errors while semaphores did not because semaphores are system wide accessible while mutices needed to be allocated the shared memory.
+5) We used the srand(time(0)) as the random seed but it did not gave random values hence we changed it to srand(id of process) in the multi-process code. 
