@@ -95,23 +95,13 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     struct list_elem timer_elem;
-  int exit_code;
-
-    //used for blockint in syscall "exec"
-    struct semaphore load_sema;
-    bool load_success;
-
-    //used for blockint in syscall "wait"
-    struct child_info *wait_child;
-
-    //record the relationship
-    struct list children_list;//include finished but not be "wait"ed children
-    struct thread *parent;
-
-    struct list files;
-    struct file *exe; //self executable file
-    int fd_cnt;
-
+  struct list childs;
+    int exec;
+    int exit;
+    int parentID;
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+    struct list_elem childelem;
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
