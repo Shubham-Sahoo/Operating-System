@@ -36,6 +36,7 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+//struct thread * getthread(int);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -70,6 +71,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+struct thread * getthread(int);
+void updateStatus(int,int);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -81,6 +84,54 @@ static tid_t allocate_tid (void);
    thread_create().
    It is not safe to call thread_current() until this function
    finishes. */
+
+void updateStatus(int ID,int status)
+{
+	//printf("%d\n",ID);
+	//printf("%d\n",status);
+	struct list_elem *e;
+	for(e = list_begin(&ex.waiters); e != list_end(&ex.waiters); 
+	e = list_next(e))
+	{
+		struct thread *t = list_entry(e,struct thread,elem);
+		//printf("thread id is %d\n",t->tid);
+		if(t->tid == ID)
+		{
+			struct list_elem *tyu;
+			for(tyu = list_begin(&t->childs);
+			tyu != list_end(&t->childs); tyu = list_next(tyu))
+			{
+				struct child *cu = list_entry(tyu,struct child,e);
+				//printf("%d\n",thread_current()->tid);
+				if(cu->threadid == thread_current()->tid){
+				  // printf("%d\n",cu->fl);
+				   if(!cu->fl){
+					cu->childstatus = status;
+					cu->t->exit = status;
+
+				   }
+				  
+				}
+			}
+		}
+		//if(t->tid == tid)
+		//	return t;
+	}
+}
+
+struct thread * getthread(int tid)
+{
+
+	struct list_elem *e;
+	for(e = list_begin(&ready_list); e != list_end(&ready_list); 
+	e = list_next(e))
+	{
+		struct thread *t = list_entry(e,struct thread,elem);
+		if(t->tid == tid)
+			return t;
+	}
+	return NULL;
+}
 void
 thread_init (void) 
 {
@@ -89,6 +140,9 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init(&files);
+  sema_init(&filesync,1);
+  sema_init(&ex,0);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -161,28 +215,11 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
- struct thread *t;
+  struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-  enum intr_level old_level;
-
- char *cmd_line = name;
-  char *prog_name;
-  char *args;
-  char *saveptr;
-  int argc = 0;
-
-  // initialize strtok
-  strtok_r(cmd_line, " ", &saveptr);
-  printf("program name: %s\n", name);
-
-  while((args = strtok_r(NULL, " ", &saveptr)))
-  {
-      printf("arg %d: %s\n", argc, args);
-      argc++;
-  }
 
   ASSERT (function != NULL);
 
@@ -194,14 +231,6 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
-  /* Prepare thread for first run by initializing its stack.
-     Do this atomically so intermediate values for the 'stack' 
-     member cannot be observed. */
-  old_level = intr_disable ();
-
-  /* Copy cmd line args to stack */
-  
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -217,8 +246,6 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
-  intr_set_level (old_level);
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -310,7 +337,9 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+ // printf("%d\n",list_size(&sema->waiters));
   list_remove (&thread_current()->allelem);
+  sema_up(&ex);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -325,7 +354,7 @@ thread_yield (void)
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
-  //printf("Hi I'm here\n");
+
   old_level = intr_disable ();
   if (cur != idle_thread) 
     list_push_back (&ready_list, &cur->elem);
@@ -468,6 +497,8 @@ is_thread (struct thread *t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
+  enum intr_level old_level;
+
   ASSERT (t != NULL);
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
@@ -477,8 +508,14 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->maxfd = 2;
   t->magic = THREAD_MAGIC;
+
+  old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  
+  list_init(&t->childs);
+  intr_set_level (old_level);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -572,21 +609,6 @@ schedule (void)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
 }
-
-bool
-wakeup_inorder (const struct list_elem *left,
-const struct list_elem *right, void *aux UNUSED)
-{
-  const struct thread *tleft = list_entry (left, struct thread, timer_elem);
-  const struct thread *tright = list_entry (right, struct thread, timer_elem);
-
-  if (tleft->wakeup_time != tright->wakeup_time)
-    return tleft->wakeup_time < tright->wakeup_time;
-  else
-    return tleft->priority > tright->priority;
-}
-
-
 
 /* Returns a tid to use for a new thread. */
 static tid_t
