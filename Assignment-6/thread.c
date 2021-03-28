@@ -1,23 +1,20 @@
-
 #include "threads/thread.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
-#include <filesys/file.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
-#include "threads/malloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "filesys/filesys.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -39,6 +36,7 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+//struct thread * getthread(int);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -73,6 +71,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+struct thread * getthread(int);
+void updateStatus(int,int);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -84,6 +84,7 @@ static tid_t allocate_tid (void);
    thread_create().
    It is not safe to call thread_current() until this function
    finishes. */
+
 void updateStatus(int ID,int status)
 {
 	//printf("%d\n",ID);
@@ -131,7 +132,6 @@ struct thread * getthread(int tid)
 	}
 	return NULL;
 }
-
 void
 thread_init (void) 
 {
@@ -140,6 +140,9 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init(&files);
+  sema_init(&filesync,1);
+  sema_init(&ex,0);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -212,30 +215,13 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
- struct thread *t;
+  struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-  enum intr_level old_level;
 
- char *cmd_line = name;
-  char *prog_name;
-  char *args;
-  char *saveptr;
-  int argc = 0;
-
-  // initialize strtok
-  strtok_r(cmd_line, " ", &saveptr);
-  printf("program name: %s\n", name);
-
-  while((args = strtok_r(NULL, " ", &saveptr)))
-  {
-      printf("arg %d: %s\n", argc, args);
-      argc++;
-  }
-
-   ASSERT (function != NULL);
+  ASSERT (function != NULL);
 
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
@@ -263,8 +249,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-   return tid;
 
+  return tid;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -341,7 +327,7 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
- ASSERT (!intr_context ());
+  ASSERT (!intr_context ());
 
 #ifdef USERPROG
   process_exit ();
@@ -522,28 +508,13 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->maxfd = 2;
   t->magic = THREAD_MAGIC;
-
-  list_init(&t->children_list);
-  list_init(&t->files);
-
-  sema_init(&t->load_sema,0);
-  t->wait_child=NULL; // at thread_create()
-  if(t==initial_thread) 
-    t->parent=NULL;
-  else 
-    t->parent = thread_current();
-
-  //TODO: is this good?
-  t->exit_code=0;
-
-  t->load_success=true;
-  t->fd_cnt=2; // stdin stdout
-  t->exe=NULL; // set at load()
-
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  
+  list_init(&t->childs);
   intr_set_level (old_level);
 }
 
@@ -613,10 +584,6 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-     while(!list_empty(&prev->children_list)){
-        struct child_info *act = list_entry (list_pop_front(&prev->children_list), struct child_info, child_elem);
-        free(act);
-      }
       palloc_free_page (prev);
     }
 }
@@ -643,21 +610,6 @@ schedule (void)
   thread_schedule_tail (prev);
 }
 
-bool
-wakeup_inorder (const struct list_elem *left,
-const struct list_elem *right, void *aux UNUSED)
-{
-  const struct thread *tleft = list_entry (left, struct thread, timer_elem);
-  const struct thread *tright = list_entry (right, struct thread, timer_elem);
-
-  if (tleft->wakeup_time != tright->wakeup_time)
-    return tleft->wakeup_time < tright->wakeup_time;
-  else
-    return tleft->priority > tright->priority;
-}
-
-
-
 /* Returns a tid to use for a new thread. */
 static tid_t
 allocate_tid (void) 
@@ -671,9 +623,7 @@ allocate_tid (void)
 
   return tid;
 }
-
-
-
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
