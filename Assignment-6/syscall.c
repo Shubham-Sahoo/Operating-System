@@ -1,11 +1,13 @@
-#include "userprog/syscall.h"
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <console.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include <devices/input.h>
-
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "devices/input.h"
 static void syscall_handler (struct intr_frame *);
 
 void
@@ -21,7 +23,10 @@ syscall_handler (struct intr_frame *f UNUSED)
   int syscall_num = *(int*) (f->esp);
   uint8_t *ptr = (uint8_t*) (f->esp);
   char c;
-
+	
+	unsigned int *esp;
+struct file *p;
+char *filename;
   // arguments to write
   int fd;
   char *buffer;
@@ -55,6 +60,18 @@ syscall_handler (struct intr_frame *f UNUSED)
 		progname = *(char **) (f->esp + 4);
 		// execute and return the PID using EAX
 		f->eax = process_execute(progname);
+
 	break;
+	case SYS_OPEN:
+	esp = f->esp;
+ 	 filename = *(esp + 1);
+ 	 p = filesys_open(filename);
+    
+ 	 if (p == NULL) f->eax = -1;
+ 	 else 
+  
+    f->eax = file_insert_in_fd(p);
+
+			break;
   } 
 }
