@@ -94,10 +94,12 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     struct list_elem timer_elem;
-	#ifdef USERPROG
+#ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-	#endif
+    struct list open_file_list;        /* open file descriptor */
+#endif
+	
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -141,4 +143,3 @@ int thread_get_load_avg (void);
 bool wakeup_inorder (const struct list_elem *left, const struct list_elem *right, void *aux UNUSED);
 
 #endif /* threads/thread.h */
-
