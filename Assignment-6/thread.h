@@ -94,16 +94,52 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     struct list_elem timer_elem;
+  int exit_code;
+
+    //used for blockint in syscall "exec"
+    struct semaphore load_sema;
+    bool load_success;
+
+    //used for blockint in syscall "wait"
+    struct child_info *wait_child;
+
+    //record the relationship
+    struct list children_list;//include finished but not be "wait"ed children
+    struct thread *parent;
+
+    struct list files;
+    struct file *exe; //self executable file
+    int fd_cnt;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    struct list open_file_list;        /* open file descriptor */
 #endif
-	
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+/*
+  used for syscall "wait"
+*/
+struct child_info
+{
+  struct list_elem child_elem;
+  tid_t tid;
+  int exit_code;
+  bool is_exit;
+  bool bewaited;
+  struct thread *child; // only used for remove_all_children_info(); dealed with orphaned process problem
+  struct semaphore wait_sema;
+};
+
+struct opened_file
+{
+  int fd;
+  struct file *file;
+  struct list_elem file_elem;
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -141,5 +177,18 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 bool wakeup_inorder (const struct list_elem *left, const struct list_elem *right, void *aux UNUSED);
+
+void acquire_file_lock(void);
+void release_file_lock(void);
+bool held_file_lock(void);
+
+
+void close_all_files(struct list* files);
+
+struct child_info *get_child_info(struct thread *th,tid_t tid);
+void add_child_info(struct thread *th,struct child_info *ch);
+void remove_child_info(struct thread *th, tid_t tid);
+void remove_all_children_info(struct thread *th);
+
 
 #endif /* threads/thread.h */
