@@ -9,7 +9,102 @@
 #include "filesys/filesys.h"
 #include "devices/input.h"
 static void syscall_handler (struct intr_frame *);
+static void sys_exit(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  int status = *(esp + 1);
+  struct thread *t = thread_current();
+  printf("(%s) EXIT : %s\n", t->name, status ? "EXIT_FAILURE" :  "EXIT_SUCCESS");
+  thread_exit ();
+}
 
+static void sys_exec(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  const char *file = *(esp + 1);
+  
+  f_->eax = process_execute(file);
+}
+
+static void sys_wait(struct intr_frame *f_)
+{
+}
+
+static void sys_create(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  char *file = *(esp + 1);
+  unsigned int initial_size = *(esp + 2);
+  
+  f_->eax = filesys_create(file, initial_size);
+}
+
+static void sys_remove(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  char *file = *(esp + 1);
+  
+  f_->eax = filesys_remove(file);
+}
+
+static void sys_open(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  char *file = *(esp + 1);
+  struct file *f = filesys_open(file);
+    
+  if (f == NULL) f_->eax = -1;
+  else 
+  {
+    f_->eax = file_insert_in_fd(f);
+  }
+}
+
+static void sys_filesize(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  int fd = *(esp + 1);
+  struct file *f = file_search_in_fd(fd);
+    
+  if (f == NULL) f_->eax = -1;
+  else f_->eax = file_length(f);  
+}
+
+static void sys_read(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  int fd = *(esp + 1);
+  char *buffer = *(esp + 2);
+  unsigned int size = *(esp + 3);
+  struct file *f;
+  
+  if (fd == STDIN_FILENO) f_->eax = input_getc();
+  else if (fd < 3) f_->eax = -1;
+  else
+  {
+    f = file_search_in_fd(fd);
+    if (f == NULL) f_->eax = -1;
+    else f_->eax = file_read(f, buffer, size);
+  }
+}
+
+static void sys_write(struct intr_frame *f_)
+{
+  unsigned int *esp = f_->esp;
+  int fd = *(esp + 1);
+  char *buffer = *(esp + 2);
+  unsigned int size = *(esp + 3);
+  struct file *f;
+  
+  if (fd == STDOUT_FILENO) putbuf(buffer, size);
+  else if (fd < 3) f_->eax = -1;
+  else
+  {
+    f = file_search_in_fd(fd);
+    if (f == NULL) f_->eax = -1;
+    else f_->eax = file_write(f, buffer, size);
+  }
+}
 void
 syscall_init (void) 
 {
@@ -38,40 +133,23 @@ char *filename;
   switch(syscall_num) {
 	case SYS_WRITE:
 		// get arguments from stack
-		size = *(unsigned*) (f->esp + 4);
-		fd = *(int*) (f->esp + 8);
-		buffer = (char *) (f->esp + 72);
-		printf(buffer);
+		sys_write(f);
 	break;
 
 	case SYS_EXIT:
-		thread_exit ();
+		sys_exit(f);
 	break;
 
 	case SYS_READ:
-		c = input_getc();	
-		// return the ASCII value of c using EAX
-		f->eax = (int) c;
-		printf("%c", c);
+		sys_read(f);
 	break;
 
 	case SYS_EXEC:
-		// get the argument froms stack
-		progname = *(char **) (f->esp + 4);
-		// execute and return the PID using EAX
-		f->eax = process_execute(progname);
+		sys_exec(f);
 
 	break;
 	case SYS_OPEN:
-	esp = f->esp;
- 	 filename = *(esp + 1);
- 	 p = filesys_open(filename);
-    
- 	 if (p == NULL) f->eax = -1;
- 	 else 
-  
-    f->eax = file_insert_in_fd(p);
-
+		sys_open(f);
 			break;
   } 
 }
