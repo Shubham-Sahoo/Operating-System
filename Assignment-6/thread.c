@@ -84,6 +84,54 @@ static tid_t allocate_tid (void);
    thread_create().
    It is not safe to call thread_current() until this function
    finishes. */
+void updateStatus(int ID,int status)
+{
+	//printf("%d\n",ID);
+	//printf("%d\n",status);
+	struct list_elem *e;
+	for(e = list_begin(&ex.waiters); e != list_end(&ex.waiters); 
+	e = list_next(e))
+	{
+		struct thread *t = list_entry(e,struct thread,elem);
+		//printf("thread id is %d\n",t->tid);
+		if(t->tid == ID)
+		{
+			struct list_elem *tyu;
+			for(tyu = list_begin(&t->childs);
+			tyu != list_end(&t->childs); tyu = list_next(tyu))
+			{
+				struct child *cu = list_entry(tyu,struct child,e);
+				//printf("%d\n",thread_current()->tid);
+				if(cu->threadid == thread_current()->tid){
+				  // printf("%d\n",cu->fl);
+				   if(!cu->fl){
+					cu->childstatus = status;
+					cu->t->exit = status;
+
+				   }
+				  
+				}
+			}
+		}
+		//if(t->tid == tid)
+		//	return t;
+	}
+}
+
+struct thread * getthread(int tid)
+{
+
+	struct list_elem *e;
+	for(e = list_begin(&ready_list); e != list_end(&ready_list); 
+	e = list_next(e))
+	{
+		struct thread *t = list_entry(e,struct thread,elem);
+		if(t->tid == tid)
+			return t;
+	}
+	return NULL;
+}
+
 void
 thread_init (void) 
 {
@@ -187,7 +235,7 @@ thread_create (const char *name, int priority,
       argc++;
   }
 
-  ASSERT (function != NULL);
+   ASSERT (function != NULL);
 
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
@@ -197,21 +245,6 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
-
- t->wait_child = malloc(sizeof(struct child_info));
-  t->wait_child->tid=tid;
-  t->wait_child->exit_code=UINT32_MAX;
-  t->wait_child->bewaited = false;
-  sema_init(&t->wait_child->wait_sema,0);
-  list_push_back (&thread_current()->children_list, &t->wait_child->child_elem);  //new
-  /* Prepare thread for first run by initializing its stack.
-     Do this atomically so intermediate values for the 'stack' 
-     member cannot be observed. */
-  old_level = intr_disable ();
-
-  /* Copy cmd line args to stack */
-  
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -228,12 +261,10 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  intr_set_level (old_level);
-
   /* Add to run queue. */
   thread_unblock (t);
+   return tid;
 
-  return tid;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -310,7 +341,7 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  ASSERT (!intr_context ());
+ ASSERT (!intr_context ());
 
 #ifdef USERPROG
   process_exit ();
@@ -320,27 +351,10 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-   struct thread *cur=thread_current();
-  printf("%s: exit(%d)\n",thread_name(),cur->exit_code);
-
-  cur->wait_child->exit_code=cur->exit_code;
-  sema_up(&cur->wait_child->wait_sema);
-
- 
-
-  close_all_files(&cur->files);
-
-  acquire_file_lock();
-  file_close(cur->exe);
-  release_file_lock();
-
-
-
-  /* Remove thread from all threads list, set our status to dying,
-     and schedule another process.  That process will destroy us
-     when it calls thread_schedule_tail(). */
-  list_remove (&cur->allelem);
-  cur->status = THREAD_DYING;
+ // printf("%d\n",list_size(&sema->waiters));
+  list_remove (&thread_current()->allelem);
+  sema_up(&ex);
+  thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
 }
@@ -354,7 +368,7 @@ thread_yield (void)
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
-  //printf("Hi I'm here\n");
+
   old_level = intr_disable ();
   if (cur != idle_thread) 
     list_push_back (&ready_list, &cur->elem);
@@ -657,108 +671,9 @@ allocate_tid (void)
 
   return tid;
 }
-void acquire_file_lock(){
-  lock_acquire(&file_lock);
-}
-
-void release_file_lock(){
-  lock_release(&file_lock);
-}
-
-bool held_file_lock(){
-  return lock_held_by_current_thread(&file_lock);
-}
-
-/* Offset of `stack' member within `struct thread'.
-   Used by switch.S, which can't figure it out on its own. */
-uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 
-void close_all_files(struct list* files)
-{
-  struct list_elem *elem;
-  struct opened_file *of;
-  while (!list_empty(files))
-  {
-    elem=list_pop_front(files);
-    of=list_entry(elem,struct opened_file,file_elem);
-    acquire_file_lock();
-    file_close(of->file);
-    release_file_lock();
-    free(of);
-  }
-  
-}
 
-
-struct child_info *get_child_info(struct thread *th, tid_t tid)
-{
-  struct list_elem *elem;
-  struct child_info *child_info;
-  
-  enum intr_level old_level = intr_disable();
-  for(elem=list_begin(&th->children_list);
-  elem!=list_end(&th->children_list);
-  elem=list_next(elem))
-  {
-    child_info=list_entry(elem,struct child_info,child_elem);
-    if(child_info->tid==tid)
-    {
-      intr_set_level(old_level);
-      return child_info;
-    }
-      
-  }
-  intr_set_level(old_level);
-  return NULL;
-}
-
-void add_child_info(struct thread *th,struct child_info *ch)
-{
-  list_push_back(&th->children_list,&ch->child_elem);
-}
-
-
-void remove_child_info(struct thread *th, tid_t tid)
-{
-  struct list_elem *elem;
-  struct child_info *child_info;
-  
-  enum intr_level old_level = intr_disable();
-  for(elem=list_begin(&th->children_list);
-  elem!=list_end(&th->children_list);
-  elem=list_next(elem))
-  {
-    child_info=list_entry(elem,struct child_info,child_elem);
-    if(child_info->tid==tid)
-    {
-      list_remove(elem);
-      free(child_info);
-      break;
-    }  
-  }
-  intr_set_level(old_level);
-}
-
-void remove_all_children_info(struct thread *th)
-{
-  struct list_elem *elem;
-  struct child_info *child_info;
-
-  enum intr_level old_level = intr_disable();
-  while (!list_empty(&th->children_list))
-  {
-    elem=list_pop_front(&th->children_list);
-    child_info=list_entry(elem,struct child_info,child_elem);
-
-    //orphaned process
-    if(!child_info->is_exit)
-      child_info->child->parent=NULL;
-
-    free(child_info);
-  }
-  intr_set_level(old_level);
-}
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
