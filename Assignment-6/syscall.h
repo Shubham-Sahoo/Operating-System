@@ -2,6 +2,6 @@
 #define USERPROG_SYSCALL_H
 
 void syscall_init (void);
-void unexpected_exit(void);
+void exit(int status);
 
 #endif /* userprog/syscall.h */
