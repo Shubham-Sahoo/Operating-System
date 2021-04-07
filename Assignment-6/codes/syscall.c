@@ -561,8 +561,7 @@ void check_buffer (void *buff_to_check, unsigned size)
     }
 }
 
-/* Code inspired by GitHub Repo created by ryantimwilson (full link in Design2.txt).
-   Get up to three arguments from a programs stack (they directly follow the system
+/* Get up to three arguments from a programs stack (they directly follow the system
    call argument). */
 void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args)
 {
